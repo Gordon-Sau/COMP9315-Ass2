@@ -26,6 +26,7 @@ void release(){
     // optional
     // do some end tasks here.
     // free space to avoid memory leak
+    free(&global_environ);
     printf("release() is invoked.\n");
 }
 
@@ -350,7 +351,6 @@ void free_environ(Environ *environ) {
     // afterwards
     free_buffer_pool(environ->buffer_pool);
     free_fd_buffer(environ->fd_buffer);
-    free(environ);
 }
 
 INT8 request_page(BufferTag pid, Environ *environ, UINT *buf_index) {
