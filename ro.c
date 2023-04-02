@@ -26,7 +26,7 @@ void release(){
     // optional
     // do some end tasks here.
     // free space to avoid memory leak
-    free(&global_environ);
+    free_environ(&global_environ);
     printf("release() is invoked.\n");
 }
 
@@ -388,7 +388,7 @@ INT8 request_page(BufferTag pid, Environ *environ, UINT *buf_index) {
 
 void release_page(BufferTag pid, BufferPool *buffer_pool, Conf *conf) {
     UINT buf_index;
-    if (buffer_pool_find_index(pid, buffer_pool, conf, &buf_index)) {
+    if (buffer_pool_find_index(pid, buffer_pool, conf->buf_slots, &buf_index)) {
         buffer_pool->directory[buf_index].pin_count -= 1;
     }
 }
