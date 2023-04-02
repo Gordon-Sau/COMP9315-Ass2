@@ -105,7 +105,7 @@ void internal_close_file(UINT oid, INT fd) {
 }
 
 
-INT internal_read_page(INT fd, UINT offset, UINT page_size, void *buffer) {
+INT internal_read_page(INT fd, UINT64 offset, UINT page_size, void *buffer) {
     lseek(fd, offset * page_size, SEEK_SET);
     INT nbytes = read(fd, buffer, page_size);
     if (nbytes == -1) {
@@ -317,6 +317,8 @@ INT8 get_victim_buffer(BufferPool *buffer_pool, UINT buf_slots,
         if (buffer_pool->directory[victim].pin_count == 0 &&
             buffer_pool->directory[victim].usage_count == 0) {
                 *buf_index = victim;
+                log_release_page(buffer_pool->directory[victim].page_id.
+                    page_id);
                 buffer_pool->next_victim = next_victim(victim, buf_slots);
                 break;
         } else {
@@ -362,6 +364,7 @@ INT8 request_page(BufferTag pid, Environ *environ, UINT *buf_index) {
             INT8 success = get_victim_buffer(buffer_pool, buf_slots, buf_index);
             if (!success) return success;
             buffer_pool->directory[*buf_index].page_id = pid;
+            log_read_page(pid.page_id);
             read_page(pid.oid, pid.page_id, environ->fd_buffer, environ->db,
                 environ->conf, &(environ->buffer_pool->pages[*buf_index]) );
         } else {
@@ -374,6 +377,7 @@ INT8 request_page(BufferTag pid, Environ *environ, UINT *buf_index) {
             buffer_pool->directory[*buf_index].pin_count = 0;
             buffer_pool->directory[*buf_index].usage_count = 0;
             buffer_pool->directory[*buf_index].freeNext = buf_slots;
+            log_read_page(pid.page_id);
             read_page(pid.oid, pid.page_id, environ->fd_buffer, environ->db,
                 environ->conf, &(environ->buffer_pool->pages[*buf_index]) );
         }
