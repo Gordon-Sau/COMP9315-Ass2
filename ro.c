@@ -5,6 +5,11 @@
 #include <unistd.h>
 #include <fcntl.h>
 
+typedef struct Environ Environ;
+void init_environ(Environ *environ, Database *db, Conf *conf);
+void free_environ(Environ *environ);
+Environ global_environ;
+
 void init(){
     // do some initialization here.
 
@@ -13,7 +18,7 @@ void init(){
 
     // example to get the Database pointer
     // Database* db = get_db();
-    
+    init_environ(&global_environ, get_db(), get_conf());
     printf("init() is invoked.\n");
 }
 
@@ -74,6 +79,11 @@ _Table* join(const UINT idx1, const char* table1_name, const UINT idx2, const ch
     return NULL;
 }
 
+typedef struct Page {
+    UINT64 page_id;
+    INT data[];
+} Page;
+
 INT internal_open_file(UINT oid, Database *db) {
     log_open_file(oid);
 
@@ -108,21 +118,21 @@ INT internal_read_page(INT fd, UINT offset, UINT page_size, void *buffer) {
 /* fd pool helper functions */
 typedef struct Vfd {
     INT fd;
-    INT oid;  // assum if oid is 0, then this slot is free
+    UINT oid;  // assum if oid is 0, then this slot is free
     INT prev_lru;
     // when it is in used, it is the vfd that is less recently used // -1, if this is the least recently used
     INT next_lru; // the vfd that is more recently used // -1, if this is the most recently used
 } Vfd;
 
-typedef struct fd_buffer {
+typedef struct FdBuffer {
     INT buffer_size;
     INT free_list_head; // -1, when no more free element
     INT lru_head;
     INT lru_tail;
     Vfd *vfds;
-} fd_buffer;
+} FdBuffer;
 
-void init_fd_buffer(fd_buffer *fd_buffer, Conf *conf) {
+void init_fd_buffer(FdBuffer *fd_buffer, Conf *conf) {
     fd_buffer->buffer_size = conf->file_limit;
     fd_buffer->free_list_head = 0;
     fd_buffer->lru_head = -1;
@@ -130,13 +140,13 @@ void init_fd_buffer(fd_buffer *fd_buffer, Conf *conf) {
     fd_buffer->vfds = malloc(conf->file_limit * sizeof(Vfd));
 }
 
-void free_fd_buffer(fd_buffer *fd_buffer) {
+void free_fd_buffer(FdBuffer *fd_buffer) {
     free(fd_buffer->vfds);
     free(fd_buffer);
 }
 
 // return the vfd
-INT oid_access(fd_buffer *fd_buffer, INT oid, Database * db) {
+INT oid_access(FdBuffer *fd_buffer, UINT oid, Database * db) {
     // search if oid is the vfd cache
     // NOTE: may use hash table to speed up the search
     for (INT i = 0; i < fd_buffer->buffer_size; i++) {
@@ -213,32 +223,168 @@ INT oid_access(fd_buffer *fd_buffer, INT oid, Database * db) {
 
 }
 
-INT read_page(INT oid, UINT offset, fd_buffer *fd_buffer, Database *db, Conf *conf, void *ret_buffer) {
+INT read_page(UINT oid, UINT offset, FdBuffer *fd_buffer, Database *db,
+        Conf *conf, Page *ret_buffer) {
     INT vfd = oid_access(fd_buffer, oid, db);
     return internal_read_page(fd_buffer->vfds[vfd].fd, offset, conf->page_size, ret_buffer);
 }
 
 /* buffer pool helper functions */
-typedef struct PageId {
-    INT oid;
-    INT page_id;
-} PageId;
+typedef struct BufferTag {
+    UINT oid;
+    UINT64 page_id;
+} BufferTag;
 
 typedef struct BufferDesc
 {
-    PageId     page_id;     // ID of page contained in buffer
-    INT        buf_id;  // buffer's index number (from 0)
-    // state, containing flags, refcount and usagecount
-    INT        state;
-    INT        freeNext;  // link in freelist chain 
+    BufferTag   page_id;     // ID of page contained in buffer
+    // UINT64      buf_id;  // buffer's index number (from 0)
+    // INT8        dirty_bit;
+    UINT        pin_count;
+    UINT        usage_count;
+    UINT64      freeNext;  // link in freelist chain 
 } BufferDesc;
 
-typedef struct buffer_pool {
+typedef struct BufferPool {
+    BufferDesc *directory;
+    Page *pages;
+    UINT next_victim;
+    UINT free_head;
+} BufferPool;
 
-} buffer_pool;
-
-void inin_buffer_pool(buffer_pool *buffer_pool) {
-
+void init_buffer_directory_free_list(BufferDesc *directory, UINT buf_slots) {
+    for (int i = 0; i < buf_slots; i++) {
+        directory[i].freeNext = i + 1;
+    }
 }
 
+void init_buffer_pool(BufferPool *buffer_pool, Conf *conf) {
+    buffer_pool->directory = calloc(conf->buf_slots, sizeof(BufferDesc));
+    init_buffer_directory_free_list(buffer_pool->directory, conf->buf_slots);
+    buffer_pool->free_head = 0;
+    buffer_pool->pages = malloc(conf->buf_slots * conf->page_size);
+    buffer_pool->next_victim = 0;
+}
 
+void free_buffer_pool(BufferPool *buffer_pool) {
+    free(buffer_pool->directory);
+    free(buffer_pool->pages);
+    free(buffer_pool);
+}
+
+INT8 eq_BufferTag(BufferTag pid1, BufferTag pid2) {
+    return (pid1.oid == pid2.oid) && (pid1.page_id == pid2.page_id);
+}
+
+INT8 buffer_pool_find_index(BufferTag pid, BufferPool *buffer_pool,
+        UINT buf_slots, UINT *found_index) {
+    for (int i = 0; i < buf_slots; i++) {
+        if (eq_BufferTag(buffer_pool->directory[i].page_id, pid)) {
+            *found_index = i;
+            return 1;
+        }
+    }
+    return 0;
+}
+
+INT8 buffer_pool_has_free(BufferPool *buffer_pool, UINT buf_slots) {
+    return buffer_pool->free_head == buf_slots;
+}
+
+UINT next_victim(UINT victim, UINT max) {
+    UINT next = victim + 1;
+    if (next == max) {
+        next = 0;
+    }
+    return next;
+}
+
+INT8 get_victim_buffer(BufferPool *buffer_pool, UINT buf_slots,
+        UINT *buf_index) {
+    INT8 has_not_in_use = 0;
+    for (int i = 0; i < buf_slots; i++) {
+        if (buffer_pool->directory[i].pin_count == 1) {
+            has_not_in_use = 1;
+            break;
+        }
+    }
+    if (!has_not_in_use) {
+        return 0;
+    }
+
+    UINT victim = buffer_pool->next_victim;
+    for (;1; victim = next_victim(victim, buf_slots)) {
+        if (buffer_pool->directory[victim].pin_count == 0 &&
+            buffer_pool->directory[victim].usage_count == 0) {
+                *buf_index = victim;
+                buffer_pool->next_victim = next_victim(victim, buf_slots);
+                break;
+        } else {
+            if (buffer_pool->directory[victim].usage_count > 0) {
+                buffer_pool->directory[victim].usage_count--;
+            }
+        }
+    }
+    return 1;
+}
+struct Environ {
+    Database *db;
+    Conf *conf;
+    BufferPool *buffer_pool;
+    FdBuffer *fd_buffer;
+};
+
+void init_environ(Environ *environ, Database *db, Conf *conf) {
+    environ->db = db;
+    environ->conf = conf;
+    environ->buffer_pool = malloc(sizeof (BufferPool));
+    init_buffer_pool(environ->buffer_pool, conf);
+    environ->fd_buffer = malloc(sizeof(FdBuffer));
+    init_fd_buffer(environ->fd_buffer, conf);
+}
+
+void free_environ(Environ *environ) {
+    // do not need to free environ->db and eniron->conf as they will be freed 
+    // afterwards
+    free_buffer_pool(environ->buffer_pool);
+    free_fd_buffer(environ->fd_buffer);
+    free(environ);
+}
+
+INT8 request_page(BufferTag pid, Environ *environ, UINT *buf_index) {
+    BufferPool *buffer_pool = environ->buffer_pool;
+    UINT buf_slots = environ->conf->buf_slots;
+    INT8 found = buffer_pool_find_index(pid, buffer_pool, buf_slots, 
+        buf_index);
+    if (!found) {
+        if (buffer_pool_has_free(buffer_pool, buf_slots)) {
+            // replace page
+            INT8 success = get_victim_buffer(buffer_pool, buf_slots, buf_index);
+            if (!success) return success;
+            buffer_pool->directory[*buf_index].page_id = pid;
+            read_page(pid.oid, pid.page_id, environ->fd_buffer, environ->db,
+                environ->conf, &(environ->buffer_pool->pages[*buf_index]) );
+        } else {
+            *buf_index = buffer_pool->free_head;
+            // update free head
+            buffer_pool->free_head = 
+                buffer_pool->directory[*buf_index].freeNext;
+            // reset meta data for this buffer
+            buffer_pool->directory[*buf_index].page_id = pid;
+            buffer_pool->directory[*buf_index].pin_count = 0;
+            buffer_pool->directory[*buf_index].usage_count = 0;
+            buffer_pool->directory[*buf_index].freeNext = buf_slots;
+            read_page(pid.oid, pid.page_id, environ->fd_buffer, environ->db,
+                environ->conf, &(environ->buffer_pool->pages[*buf_index]) );
+        }
+    }
+    buffer_pool->directory[*buf_index].pin_count += 1;
+    return 1;
+}
+
+void release_page(BufferTag pid, BufferPool *buffer_pool, Conf *conf) {
+    UINT buf_index;
+    if (buffer_pool_find_index(pid, buffer_pool, conf, &buf_index)) {
+        buffer_pool->directory[buf_index].pin_count -= 1;
+    }
+}
