@@ -4,6 +4,7 @@
 #include "db.h"
 #include <unistd.h>
 #include <fcntl.h>
+#include <string.h>
 
 typedef struct Environ Environ;
 void init_environ(Environ *environ, Database *db, Conf *conf);
@@ -30,41 +31,151 @@ void release(){
     printf("release() is invoked.\n");
 }
 
+// tuple iterator
+typedef struct Scan {
+    Tuple tup; // the next tuple
+    UINT64 tup_id; // the id of the current tuple
+    BufferTag buf_tag; // current oid, pid
+    Page *page; // referencing the page in the buffer
+    UINT64 npages; // number of pages in the table
+    UINT64 ntuples; // number of tuples in the table
+} Scan;
+
+Scan startScan(Table *table, Environ *environ) {
+    Scan s;
+    // initialize a Scan structure
+    if (environ->conf->page_size <= sizeof(UINT64)) {
+        printf("There are no tuples in a page. page size is too small.");
+        exit(1);
+    }
+    s.ntuples = table->ntuples;
+    if (table->ntuples == 0) {
+        s.tup = NULL;
+        return s;
+    }
+    UINT64 actual_mem_per_page = environ->conf->page_size - sizeof(UINT64);
+    // rounding up reference: https://stackoverflow.com/a/2422722
+    s.npages = (table->ntuples * table->nattrs + (actual_mem_per_page - 1)) /
+        actual_mem_per_page;
+    setBufferTag(&(s.buf_tag), table->oid, 0);
+    s.page = request_page(s.buf_tag, environ);
+    if (s.page == NULL) {
+        printf("fail to request page!");
+    }
+    s.tup_id = 0;
+    s.tup = s.page->data;
+    return s;
+}
+
+Tuple get_next_tup(Scan s, UINT page_size, UINT nattrs) {
+    Tuple curr_tup = s.tup;
+    // advance the iterator
+    s.tup_id += 1;
+    if (s.tup_id >= s.ntuples) {
+        release_page(s.buf_tag, global_environ.buffer_pool,
+            global_environ.conf);
+        s.buf_tag.page_id += 1;
+        if (s.buf_tag.page_id >= s.npages) {
+            return NULL;
+        } else {
+            s.page = request_page(s.buf_tag, &global_environ);
+            if (s.page == NULL) {
+                printf("fail to request page!");
+            }
+            s.tup = s.page->data;
+        }
+    } else {
+        s.tup = &(s.page->data[
+            s.tup_id % ((page_size - sizeof(UINT64)) / nattrs)]);
+    }
+    return curr_tup;
+}
+
+Table *get_table(const char *table_name, Database *db) {
+    for (int i = 0; i < db->ntables; i++) {
+        if (strcmp(table_name, db->tables[i].name) == 0) {
+            return &(db->tables[i]);
+        }
+    }
+    return NULL;
+}
+
+typedef struct ExtendableOutputTable {
+    _Table *output_table;
+    UINT64 capacity; // start with 1 page
+} ExtendableOutputTable; // add one page each time
+
+ExtendableOutputTable initExtOutputTable(Conf *conf, UINT nattrs) {
+    ExtendableOutputTable ret;
+    ret.capacity = conf->page_size;
+    ret.output_table = malloc(sizeof(_Table) + conf->page_size);
+    memset(ret.output_table->tuples, 0, conf->page_size);
+    ret.output_table->nattrs = nattrs;
+    ret.output_table->ntuples = 0;
+    return ret;
+}
+
+void expandOutputTable(ExtendableOutputTable *output_table, Conf *conf) {
+    output_table->capacity += conf->page_size;
+    _Table *temp = realloc(output_table->output_table,
+        sizeof(_Table) + output_table->capacity);
+    if (temp != NULL) {
+        perror("realloc");
+        exit(1);
+    }
+    output_table->output_table = temp;
+}
+
+Tuple copy_tuple(Tuple tup, UINT nattrs) {
+    Tuple ret = malloc(sizeof(INT) * nattrs);
+    memcpy(ret, tup, sizeof(INT) * nattrs);
+    return ret;
+}
+
+void appendOutputTable(ExtendableOutputTable *out, Tuple tup, UINT nattrs,
+        Conf *conf) {
+    if (out->capacity == out->output_table->ntuples) {
+        expandOutputTable(out, conf);
+    }
+    out->output_table->tuples[out->output_table->ntuples] =
+        copy_tuple(tup, nattrs);
+    out->output_table->ntuples++;
+}
+
 _Table* sel(const UINT idx, const INT cond_val, const char* table_name){
     
     printf("sel() is invoked.\n");
 
-    // invoke log_read_page() every time a page is read from the hard drive.
-    // invoke log_release_page() every time a page is released from the memory.
+    Table *table = get_table(table_name, global_environ.db);
+    if (table == NULL) {
+        printf("table %s does not exist.", table_name);
+        return NULL;
+    }
 
-    // invoke log_open_file() every time a page is read from the hard drive.
-    // invoke log_close_file() every time a page is released from the memory.
+    Scan s = startScan(table, &global_environ);
+    if (s.tup == NULL) {
+        _Table *output = malloc(sizeof(_Table));
+        output->nattrs = table->nattrs;
+        output->ntuples = 0;
+        return output;
+    }
 
-    // testing
-    // the following code constructs a synthetic _Table with 10 tuples and each tuple contains 4 attributes
-    // examine log.txt to see the example outputs
-    // replace all code with your implementation
+    ExtendableOutputTable out = initExtOutputTable(
+        global_environ.conf, table->nattrs);
 
-    UINT ntuples = 10;
-    UINT nattrs = 4;
-
-    _Table* result = malloc(sizeof(_Table)+ntuples*sizeof(Tuple));
-    result->nattrs = nattrs;
-    result->ntuples = ntuples;
-
-    INT value = 0;
-    for (UINT i = 0; i < result->ntuples; i++){
-        Tuple t = malloc(sizeof(INT)*result->nattrs);
-        result->tuples[i] = t;
-        for (UINT j = 0; j < result->nattrs; j++){
-            t[j] = value;
-            ++value;
+    for (
+        Tuple tup =
+            get_next_tup(s, global_environ.conf->page_size, table->nattrs);
+        tup != NULL;
+        tup = get_next_tup(s, global_environ.conf->page_size, table->nattrs)) {
+        if (tup[idx] == cond_val) {
+            // append to _Table *
+            appendOutputTable(&out, tup, table->nattrs, global_environ.conf);
         }
     }
-    
-    return result;
 
-    // return NULL;
+    return out.output_table;
+
 }
 
 _Table* join(const UINT idx1, const char* table1_name, const UINT idx2, const char* table2_name){
@@ -236,6 +347,11 @@ typedef struct BufferTag {
     UINT64 page_id;
 } BufferTag;
 
+void setBufferTag(BufferTag *buf_tag, UINT oid, UINT64 page_id) {
+    buf_tag->oid = oid;
+    buf_tag->page_id = page_id;
+}
+
 typedef struct BufferDesc
 {
     BufferTag   page_id;     // ID of page contained in buffer
@@ -315,6 +431,9 @@ INT8 get_victim_buffer(BufferPool *buffer_pool, UINT buf_slots,
 
     UINT victim = buffer_pool->next_victim;
     for (;1; victim = next_victim(victim, buf_slots)) {
+        if (buffer_pool->directory[victim].usage_count > 0) {
+            buffer_pool->directory[victim].usage_count--;
+        }
         if (buffer_pool->directory[victim].pin_count == 0 &&
             buffer_pool->directory[victim].usage_count == 0) {
                 *buf_index = victim;
@@ -322,10 +441,6 @@ INT8 get_victim_buffer(BufferPool *buffer_pool, UINT buf_slots,
                     page_id);
                 buffer_pool->next_victim = next_victim(victim, buf_slots);
                 break;
-        } else {
-            if (buffer_pool->directory[victim].usage_count > 0) {
-                buffer_pool->directory[victim].usage_count--;
-            }
         }
     }
     return 1;
@@ -353,37 +468,40 @@ void free_environ(Environ *environ) {
     free_fd_buffer(environ->fd_buffer);
 }
 
-INT8 request_page(BufferTag pid, Environ *environ, UINT *buf_index) {
+Page *request_page(BufferTag pid, Environ *environ) {
+    UINT buf_index;
     BufferPool *buffer_pool = environ->buffer_pool;
     UINT buf_slots = environ->conf->buf_slots;
     INT8 found = buffer_pool_find_index(pid, buffer_pool, buf_slots, 
-        buf_index);
+        &buf_index);
     if (!found) {
         if (buffer_pool_has_free(buffer_pool, buf_slots)) {
             // replace page
-            INT8 success = get_victim_buffer(buffer_pool, buf_slots, buf_index);
-            if (!success) return success;
-            buffer_pool->directory[*buf_index].page_id = pid;
+            INT8 success = get_victim_buffer(buffer_pool, buf_slots, 
+                &buf_index);
+            if (!success) return NULL;
+            buffer_pool->directory[buf_index].page_id = pid;
             log_read_page(pid.page_id);
             read_page(pid.oid, pid.page_id, environ->fd_buffer, environ->db,
-                environ->conf, &(environ->buffer_pool->pages[*buf_index]) );
+                environ->conf, &(environ->buffer_pool->pages[buf_index]) );
         } else {
-            *buf_index = buffer_pool->free_head;
+            buf_index = buffer_pool->free_head;
             // update free head
             buffer_pool->free_head = 
-                buffer_pool->directory[*buf_index].freeNext;
+                buffer_pool->directory[buf_index].freeNext;
             // reset meta data for this buffer
-            buffer_pool->directory[*buf_index].page_id = pid;
-            buffer_pool->directory[*buf_index].pin_count = 0;
-            buffer_pool->directory[*buf_index].usage_count = 0;
-            buffer_pool->directory[*buf_index].freeNext = buf_slots;
+            buffer_pool->directory[buf_index].page_id = pid;
+            buffer_pool->directory[buf_index].pin_count = 0;
+            buffer_pool->directory[buf_index].usage_count = 0;
+            buffer_pool->directory[buf_index].freeNext = buf_slots;
             log_read_page(pid.page_id);
             read_page(pid.oid, pid.page_id, environ->fd_buffer, environ->db,
-                environ->conf, &(environ->buffer_pool->pages[*buf_index]) );
+                environ->conf, &(buffer_pool->pages[buf_index]) );
         }
     }
-    buffer_pool->directory[*buf_index].pin_count += 1;
-    return 1;
+    buffer_pool->directory[buf_index].pin_count += 1;
+    buffer_pool->directory[buf_index].usage_count += 1;
+    return &(buffer_pool->pages[buf_index]);
 }
 
 void release_page(BufferTag pid, BufferPool *buffer_pool, Conf *conf) {
