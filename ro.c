@@ -6,10 +6,62 @@
 #include <fcntl.h>
 #include <string.h>
 
-typedef struct Environ Environ;
+typedef struct Vfd {
+    INT fd;
+    UINT oid;  // assum if oid is 0, then this slot is free
+    INT prev_lru;
+    // when it is in used, it is the vfd that is less recently used // -1, if this is the least recently used
+    INT next_lru; // the vfd that is more recently used // -1, if this is the most recently used
+} Vfd;
+
+typedef struct FdBuffer {
+    INT buffer_size;
+    INT free_list_head; // -1, when no more free element
+    INT lru_head;
+    INT lru_tail;
+    Vfd *vfds;
+} FdBuffer;
+
+typedef struct BufferTag {
+    UINT oid;
+    UINT64 page_id;
+} BufferTag;
+
+typedef struct Page {
+    UINT64 page_id;
+    INT data[];
+} Page;
+
+typedef struct BufferDesc
+{
+    BufferTag   page_id;     // ID of page contained in buffer
+    // UINT64      buf_id;  // buffer's index number (from 0)
+    // INT8        dirty_bit;
+    UINT        pin_count;
+    UINT        usage_count;
+    UINT64      freeNext;  // link in freelist chain 
+} BufferDesc;
+
+typedef struct BufferPool {
+    BufferDesc *directory;
+    Page *pages;
+    UINT next_victim;
+    UINT free_head;
+} BufferPool;
+
+
+typedef struct Environ {
+    Database *db;
+    Conf *conf;
+    BufferPool *buffer_pool;
+    FdBuffer *fd_buffer;
+} Environ;
+
 void init_environ(Environ *environ, Database *db, Conf *conf);
 void free_environ(Environ *environ);
 Environ global_environ;
+Page *request_page(BufferTag pid, Environ *environ);
+void release_page(BufferTag pid, BufferPool *buffer_pool, Conf *conf);
 
 void init(){
     // do some initialization here.
@@ -29,6 +81,12 @@ void release(){
     // free space to avoid memory leak
     free_environ(&global_environ);
     printf("release() is invoked.\n");
+}
+
+
+void setBufferTag(BufferTag *buf_tag, UINT oid, UINT64 page_id) {
+    buf_tag->oid = oid;
+    buf_tag->page_id = page_id;
 }
 
 // tuple iterator
@@ -191,10 +249,7 @@ _Table* join(const UINT idx1, const char* table1_name, const UINT idx2, const ch
     return NULL;
 }
 
-typedef struct Page {
-    UINT64 page_id;
-    INT data[];
-} Page;
+
 
 INT internal_open_file(UINT oid, Database *db) {
     log_open_file(oid);
@@ -228,21 +283,7 @@ INT internal_read_page(INT fd, UINT64 offset, UINT page_size, void *buffer) {
 }
 
 /* fd pool helper functions */
-typedef struct Vfd {
-    INT fd;
-    UINT oid;  // assum if oid is 0, then this slot is free
-    INT prev_lru;
-    // when it is in used, it is the vfd that is less recently used // -1, if this is the least recently used
-    INT next_lru; // the vfd that is more recently used // -1, if this is the most recently used
-} Vfd;
 
-typedef struct FdBuffer {
-    INT buffer_size;
-    INT free_list_head; // -1, when no more free element
-    INT lru_head;
-    INT lru_tail;
-    Vfd *vfds;
-} FdBuffer;
 
 void init_fd_buffer(FdBuffer *fd_buffer, Conf *conf) {
     fd_buffer->buffer_size = conf->file_limit;
@@ -342,32 +383,6 @@ INT read_page(UINT oid, UINT offset, FdBuffer *fd_buffer, Database *db,
 }
 
 /* buffer pool helper functions */
-typedef struct BufferTag {
-    UINT oid;
-    UINT64 page_id;
-} BufferTag;
-
-void setBufferTag(BufferTag *buf_tag, UINT oid, UINT64 page_id) {
-    buf_tag->oid = oid;
-    buf_tag->page_id = page_id;
-}
-
-typedef struct BufferDesc
-{
-    BufferTag   page_id;     // ID of page contained in buffer
-    // UINT64      buf_id;  // buffer's index number (from 0)
-    // INT8        dirty_bit;
-    UINT        pin_count;
-    UINT        usage_count;
-    UINT64      freeNext;  // link in freelist chain 
-} BufferDesc;
-
-typedef struct BufferPool {
-    BufferDesc *directory;
-    Page *pages;
-    UINT next_victim;
-    UINT free_head;
-} BufferPool;
 
 void init_buffer_directory_free_list(BufferDesc *directory, UINT buf_slots) {
     for (int i = 0; i < buf_slots; i++) {
@@ -445,12 +460,6 @@ INT8 get_victim_buffer(BufferPool *buffer_pool, UINT buf_slots,
     }
     return 1;
 }
-struct Environ {
-    Database *db;
-    Conf *conf;
-    BufferPool *buffer_pool;
-    FdBuffer *fd_buffer;
-};
 
 void init_environ(Environ *environ, Database *db, Conf *conf) {
     environ->db = db;
