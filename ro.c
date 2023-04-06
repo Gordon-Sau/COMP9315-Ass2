@@ -371,21 +371,43 @@ void nestedLoopJoin(Table *R, const UINT idxR, Table *S, const UINT idxS,
 
     free(R_pages);
 }
+typedef struct SortedScan {
+    UINT64 ntuple;
+    UINT nattrs;
+    Tuple *tuple;
+    UINT64 curr_tup;
+} SortedScan;
 
-void sortBlock() {
+void sort_table(Table *table, UINT idx, SortedScan *s) {
+    // sort in memory
+    // get all tuples and copy them to a new buffer
+    // sort the buffer
+    // set up SortedScan
+}
+
+Tuple SortedScan_get_next(SortedScan s) {
 
 }
 
-void mergeSorted() {
+void merge_join(SortedScan sortedR, SortedScan sortedS, UINT idxR, UINT idxS,
+    ExtendableOutputTable *output) {
 
+    
 }
 
-void mergeJoin() {
-
+void freeSortedScan(SortedScan *s) {
+    free(s->tuple);
 }
 
-void sortMergeJoin(Table outerRel, Table innerRel, _Table *output) {
-
+void sortMergeJoin(Table *R, Table *S, UINT idxR, UINT idxS,
+        ExtendableOutputTable *output) {
+    SortedScan sortedR;
+    sort_table(R, idxR, &sortedR);
+    SortedScan sortedS;
+    sort_table(S, idxS, &sortedS);
+    merge_join(sortedR, sortedS, idxR, idxS, output);
+    freeSortedScan(&sortedR);
+    freeSortedScan(&sortedS);
 }
 
 _Table* join(const UINT idx1, const char* table1_name, const UINT idx2, const char* table2_name){
@@ -426,13 +448,6 @@ _Table* join(const UINT idx1, const char* table1_name, const UINT idx2, const ch
     } else {
         // sort merge join
     }
-
-    // write your code to join two tables
-    // invoke log_read_page() every time a page is read from the hard drive.
-    // invoke log_release_page() every time a page is released from the memory.
-
-    // invoke log_open_file() every time a page is read from the hard drive.
-    // invoke log_close_file() every time a page is released from the memory.
 
     return out.output_table;
 }
