@@ -212,7 +212,6 @@ Tuple get_next_tup(Scan *s, UINT nattrs) {
     } else {
         return curr_tup;
     }
-    return curr_tup;
 }
 
 Table *get_table(const char *table_name, Database *db) {
@@ -374,38 +373,109 @@ void nestedLoopJoin(Table *R, const UINT idxR, Table *S, const UINT idxS,
 typedef struct SortedScan {
     UINT64 ntuple;
     UINT nattrs;
-    Tuple *tuple;
+    INT *tuples;
     UINT64 curr_tup;
 } SortedScan;
 
+static int cmp_tuple(const void *p1, const void *p2, void *args) {
+    const Tuple t1 = p1;
+    const Tuple t2 = p2;
+    UINT idx = *((UINT *)args);
+    if (t1[idx] < t2[idx]) {
+        return -1;
+    } else if (t1[idx] > t2[idx]) {
+        return 1;
+    }
+    return 0;
+}
+
 void sort_table(Table *table, UINT idx, SortedScan *s) {
-    // sort in memory
+    s->ntuple = table->ntuples;
+    s->nattrs = table->nattrs;
+    s->curr_tup = 0;
+
     // get all tuples and copy them to a new buffer
+    s->tuples = malloc(sizeof(INT) * table->nattrs * table->ntuples);
+    Scan input_scan;
+    startScan(table, &input_scan);
+    UINT64 curr_tup_id = 0;
+    for (Tuple tup = get_next_tup(&input_scan, table->nattrs);
+        tup != NULL;
+        tup = get_next_tup(&input_scan, table->nattrs)) {
+
+        memcpy(&(s->tuples[curr_tup_id * table->nattrs]), tup, table->nattrs);
+        curr_tup_id++;
+    }
+
     // sort the buffer
-    // set up SortedScan
+    qsort_r(s->tuples, table->ntuples, sizeof(INT) * s->nattrs, cmp_tuple, &idx);
 }
 
-Tuple SortedScan_get_next(SortedScan s) {
-
+Tuple SortedScan_get_next(SortedScan *s) {
+    if (s->curr_tup >= s->ntuple) {
+        return NULL;
+    }
+    Tuple tup = &(s->tuples[s->curr_tup * s->nattrs]);
+    s->curr_tup++;
+    return tup;
 }
 
-void merge_join(SortedScan sortedR, SortedScan sortedS, UINT idxR, UINT idxS,
+UINT64 SortedScan_get_curr_tup_id(SortedScan *s) {
+    return s->curr_tup;
+}
+
+void SortedScan_set_tup_id(SortedScan *s, UINT64 tup_id) {
+    s->curr_tup = tup_id;
+}
+
+void merge_join(SortedScan *sortedR, SortedScan *sortedS, UINT idxR, UINT idxS,
     ExtendableOutputTable *output) {
-
     
+    Tuple tupR = SortedScan_get_next(sortedR);
+    Tuple tupS;
+    while (tupR != NULL &&
+        (tupS = SortedScan_get_next(sortedS)) != NULL) {
+
+        while (tupR != NULL && (tupR[idxR] < tupS[idxS])) {
+            tupR = SortedScan_get_next(sortedR);
+        }
+        if (tupR == NULL) break;
+
+        while (tupS != NULL && (tupS[idxS] < tupR[idxR])) {
+            tupS = SortedScan_get_next(sortedS);
+        }
+        if (tupS == NULL) break;
+
+        // found equal
+        // store the tuple id of the start of the current run
+        UINT64 start_run_id = SortedScan_get_curr_tup_id(sortedS);
+
+        while (tupR != NULL && (tupR[idxR] == tupS[idxS])) {
+            while (tupS != NULL && (tupR[idxR] == tupS[idxS])) {
+                appendOutputTable(
+                    output,
+                    mergeTuple(tupR, sortedR->nattrs,tupS,sortedS->nattrs),
+                    global_environ.conf);
+                tupS = SortedScan_get_next(sortedS);
+            }
+            tupR = SortedScan_get_next(sortedR);
+            SortedScan_set_tup_id(sortedS, start_run_id);
+        }
+
+    }
 }
 
 void freeSortedScan(SortedScan *s) {
-    free(s->tuple);
+    free(s->tuples);
 }
 
-void sortMergeJoin(Table *R, Table *S, UINT idxR, UINT idxS,
+void sortMergeJoin(Table *R, UINT idxR, Table *S, UINT idxS,
         ExtendableOutputTable *output) {
     SortedScan sortedR;
     sort_table(R, idxR, &sortedR);
     SortedScan sortedS;
     sort_table(S, idxS, &sortedS);
-    merge_join(sortedR, sortedS, idxR, idxS, output);
+    merge_join(&sortedR, &sortedS, idxR, idxS, output);
     freeSortedScan(&sortedR);
     freeSortedScan(&sortedS);
 }
@@ -447,6 +517,7 @@ _Table* join(const UINT idx1, const char* table1_name, const UINT idx2, const ch
         }
     } else {
         // sort merge join
+        sortMergeJoin(table1, idx1, table2, idx2, &out);
     }
 
     return out.output_table;
