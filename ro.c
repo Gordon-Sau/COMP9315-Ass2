@@ -259,7 +259,7 @@ void expandOutputTable(ExtendableOutputTable *output_table, Conf *conf) {
     output_table->capacity += inc_cap;
     _Table *temp = realloc(output_table->output_table,
         sizeof(_Table) + output_table->capacity * sizeof(Tuple));
-    if (temp != NULL) {
+    if (temp == NULL) {
         perror("realloc");
         exit(1);
     }
