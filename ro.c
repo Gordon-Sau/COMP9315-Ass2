@@ -110,7 +110,6 @@ typedef struct BufferedScan {
     UINT n_buffered_pages; // number of buffered pages
     UINT curr_buffered_page_index; // the index in the buffer
     UINT64 curr_page; // the actual page index
-    Tuple tup; // the next tuple
     UINT64 tup_id; // the index of the current tuple
     UINT64 npages; // number of pages in the table
     UINT64 ntuples; // number of tuples in the table
@@ -118,6 +117,22 @@ typedef struct BufferedScan {
 } BufferedScan;
 
 Tuple BufferedScan_get_tup_pointer(BufferedScan *s) {
+    UINT64 tups_per_page = max_tups_per_page(global_environ.conf, s->nattrs);
+
+    if (s->tup_id >= tups_per_page) {
+        s->tup_id = 0;
+        s->curr_page += 1;
+        s->curr_buffered_page_index += 1;
+
+        if (s->curr_page == s->npages) {
+            return NULL;
+        }
+    }
+
+    if (s->tup_id >= s->ntuples - s->curr_page * tups_per_page) {
+        return NULL;
+    }
+
     return &(s->buffered_pages[s->curr_buffered_page_index]->
         data[s->tup_id * s->nattrs]);
 }
@@ -134,7 +149,6 @@ void BufferedScan_set_buffer(BufferedScan *s, Page **new_buffer_pages, UINT
         exit(1);
     }
     s->curr_page = curr_page;
-    s->tup = BufferedScan_get_tup_pointer(s);
 }
 
 void startBufferedScan(Table *table, Page **buffered_pages, UINT64 curr_page,
@@ -146,35 +160,18 @@ void startBufferedScan(Table *table, Page **buffered_pages, UINT64 curr_page,
     }
 
     s->ntuples = table->ntuples;
-    if (table->ntuples == 0) {
-        s->tup = NULL;
-    }
     s->nattrs = table->nattrs;
     s->npages = table_get_npages(table, global_environ.conf->page_size);
 
     BufferedScan_set_buffer(s, buffered_pages, n_buffered_pages, curr_page);
 }
 
-
 Tuple BufferedScan_get_next_tup(BufferedScan *s) {
-    UINT page_size = global_environ.conf->page_size;
-    Tuple t = s->tup;
+    Tuple t = BufferedScan_get_tup_pointer(s);
+    // end of table, do not advance the pointer
     if (t == NULL) return NULL;
     // advance the iterator
     s->tup_id += 1;
-    if (s->tup_id == max_tups_per_page(global_environ.conf, s->nattrs)) {
-        s->tup_id = 0;
-        s->curr_page += 1;
-        s->curr_buffered_page_index += 1;
-        if (s->curr_page >= s->npages) {
-            s->tup = NULL;
-        }
-    } else if (s->tup_id + page_size * s->curr_page >= s->ntuples) {
-        // last tuple has been returned already
-        s->tup = NULL;
-    } else {
-        s->tup = BufferedScan_get_tup_pointer(s);
-    }
     return t;
 }
 
