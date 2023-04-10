@@ -207,7 +207,6 @@ void startScan(Table *table, Scan *s) {
 
 Tuple get_next_tup(Scan *s) {
     Tuple curr_tup = BufferedScan_get_next_tup(&(s->buffered_scan));
-    UINT page_size = global_environ.conf->page_size;
     // advance the iterator
     if (curr_tup == NULL) {
         release_page(s->buf_tag, &global_environ);
