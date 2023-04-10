@@ -9,7 +9,7 @@
 #include <assert.h>
 #define DEBUG 0
 #define DEBUG_NESTED_LOOP 0
-#define DEBUG_fd_pool 1
+#define DEBUG_fd_pool 0
 
 typedef INT8 bool;
 
@@ -776,12 +776,13 @@ INT oid_access(FdBuffer *fd_buffer, UINT oid, Database * db) {
                 // not mru already
                 // need to set it to the most recently used
                 if (fd_buffer->lru_head == i) {
-                    // lru
+                    // i is lru
                     fd_buffer->lru_head = fd_buffer->vfds[i].next_lru;
+                    // NOTE: it is impossible that fd_buffer->lru_head is -1 as there are at least 2 elements (lru and mru)
                     assert(fd_buffer->lru_head != -1);
                     fd_buffer->vfds[fd_buffer->lru_head].prev_lru = -1;
                 } else {
-                    // middle
+                    // middle (i is neither lru or mru)
                     INT prev = fd_buffer->vfds[i].prev_lru;
                     INT next = fd_buffer->vfds[i].next_lru;
                     fd_buffer->vfds[prev].next_lru = next;
@@ -790,7 +791,7 @@ INT oid_access(FdBuffer *fd_buffer, UINT oid, Database * db) {
                 fd_buffer->vfds[fd_buffer->lru_tail].next_lru = i;
                 fd_buffer->vfds[i].prev_lru = fd_buffer->lru_tail;
                 fd_buffer->lru_tail = i;
-                fd_buffer->vfds[i].next_lru = -1;
+                fd_buffer->vfds[fd_buffer->lru_tail].next_lru = -1;
             }
             return i;
         }
@@ -826,18 +827,20 @@ INT oid_access(FdBuffer *fd_buffer, UINT oid, Database * db) {
         // no more free slot
         // need to close the least recently used file and reuse the slot
         INT vfd = fd_buffer->lru_head;
-        if (vfd == -1) {
-            puts("no free slots and no least recently used fd");
-            exit(1);
-        }
+#if DEBUG_fd_pool
+        printf("evict vfd %u...\n", vfd);
+        assert(vfd != -1); // Error: no free slots and no least recently used fd
+#endif
+
         internal_close_file(fd_buffer->vfds[vfd].oid, fd_buffer->vfds[vfd].fd);
         fd_buffer->vfds[vfd].oid = oid;
         fd_buffer->vfds[vfd].fd = internal_open_file(oid, db);
 
         if (fd_buffer->lru_tail == vfd) {
-            // singleton
+            // singleton (it is already set to mru)
             // keep unchanged
         } else {
+            assert(fd_buffer->vfds[vfd].next_lru != -1);
             fd_buffer->lru_head = fd_buffer->vfds[vfd].next_lru;
             fd_buffer->vfds[fd_buffer->lru_head].prev_lru = -1;
             // set mru
