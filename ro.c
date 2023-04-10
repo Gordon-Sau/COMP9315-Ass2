@@ -90,7 +90,7 @@ void setBufferTag(BufferTag *buf_tag, UINT oid, UINT64 page_index) {
 }
 
 UINT64 max_tups_per_page(Conf *conf, UINT nattrs) {
-    return (conf->page_size - sizeof(UINT64)) / nattrs;
+    return ((conf->page_size - sizeof(UINT64)) / sizeof(INT)) / nattrs;
 }
 
 UINT64 round_up_div(UINT64 x, UINT64 y) {
@@ -116,6 +116,14 @@ typedef struct BufferedScan {
     UINT nattrs; // number of attributes for each tuple in the table
 } BufferedScan;
 
+bool is_end_tup(BufferedScan *s) {
+    UINT64 tups_per_page = max_tups_per_page(global_environ.conf, s->nattrs);
+    if (s->curr_page * tups_per_page > s->ntuples) {
+        return 1;
+    }
+    return (s->tup_id >= s->ntuples - s->curr_page * tups_per_page);
+}
+
 Tuple BufferedScan_get_tup_pointer(BufferedScan *s) {
     UINT64 tups_per_page = max_tups_per_page(global_environ.conf, s->nattrs);
 
@@ -124,12 +132,16 @@ Tuple BufferedScan_get_tup_pointer(BufferedScan *s) {
         s->curr_page += 1;
         s->curr_buffered_page_index += 1;
 
-        if (s->curr_page == s->npages) {
+        if (s->curr_page >= s->npages) {
+            return NULL;
+        }
+
+        if (s->curr_buffered_page_index >= s->n_buffered_pages) {
             return NULL;
         }
     }
 
-    if (s->tup_id >= s->ntuples - s->curr_page * tups_per_page) {
+    if (is_end_tup(s)) {
         return NULL;
     }
 
@@ -189,7 +201,8 @@ void startScan(Table *table, Scan *s) {
         printf("fail to request page!");
         exit(1);
     }
-    startBufferedScan(table, &(s->page), 0, 1, &(s->buffered_scan));
+    startBufferedScan(table, &(s->page), s->buf_tag.page_index, 1,
+        &(s->buffered_scan));
 }
 
 Tuple get_next_tup(Scan *s) {
@@ -197,16 +210,13 @@ Tuple get_next_tup(Scan *s) {
     UINT page_size = global_environ.conf->page_size;
     // advance the iterator
     if (curr_tup == NULL) {
-
-        if (s->buffered_scan.tup_id + page_size * s->buffered_scan.curr_page >=
-            s->buffered_scan.ntuples) {
-                release_page(s->buf_tag, &global_environ);
-                return NULL;
+        release_page(s->buf_tag, &global_environ);
+        if (is_end_tup(&(s->buffered_scan))) {
+            return NULL;
         } else {
-            release_page(s->buf_tag, &global_environ);
             // request next page
             s->buf_tag.page_index += 1;
-            if (s->buf_tag.page_index == s->buffered_scan.npages) {
+            if (s->buf_tag.page_index >= s->buffered_scan.npages) {
                 return NULL;
             }
             s->page = request_page(s->buf_tag, &global_environ);
@@ -243,9 +253,13 @@ ExtendableOutputTable initExtOutputTable(Conf *conf, UINT nattrs) {
 }
 
 void expandOutputTable(ExtendableOutputTable *output_table, Conf *conf) {
-    output_table->capacity += conf->page_size;
+    UINT inc_cap = conf->page_size / sizeof(Tuple);
+    if (inc_cap == 0) {
+        inc_cap = 1;
+    }
+    output_table->capacity += inc_cap;
     _Table *temp = realloc(output_table->output_table,
-        sizeof(_Table) + output_table->capacity);
+        sizeof(_Table) + output_table->capacity * sizeof(Tuple));
     if (temp != NULL) {
         perror("realloc");
         exit(1);
@@ -318,24 +332,32 @@ void nestedLoopJoin(Table *R, const UINT idxR, Table *S, const UINT idxS,
     Conf *conf = global_environ.conf;
     UINT64 npagesR = table_get_npages(R, conf->page_size);
     UINT N = conf->buf_slots;
+    if (N == 1) {
+        printf("cannot do nested loop join with just 1 buffer");
+        exit(1);
+    }
 
     UINT64 nreadPagesR = 0;
-    UINT64 nstartPageR = 0;
+    UINT64 nstartPagesR = 0;
     Page **R_pages = malloc(sizeof(Page *) * (N - 1));
 
-    while (nreadPagesR < npagesR) {
+    while (nstartPagesR < npagesR) {
 
         // read N-1 pages of R
         for (UINT i = 0; i < N - 1; i++) {
             BufferTag bufTagR;
             setBufferTag(&bufTagR, R->oid, nreadPagesR);
             R_pages[i] = request_page(bufTagR, &global_environ);
+            if (R_pages[i] == NULL) {
+                printf("failed to request page in nested loop join! Accessing oid: %u, page_index: %lu",
+                    bufTagR.oid, bufTagR.page_index);
+            }
             nreadPagesR++;
             if (nreadPagesR == npagesR) break;
         }
 
         BufferedScan scanR;
-        startBufferedScan(R, R_pages, nstartPageR, nreadPagesR - nstartPageR,
+        startBufferedScan(R, R_pages, nstartPagesR, nreadPagesR - nstartPagesR,
             &scanR);
 
         Scan scanS;
@@ -366,15 +388,16 @@ void nestedLoopJoin(Table *R, const UINT idxR, Table *S, const UINT idxS,
         // release N-1 pages of R
         for (UINT i = 0; i < N - 1; i++) {
             BufferTag bufTagR;
-            setBufferTag(&bufTagR, R->oid, nstartPageR);
+            setBufferTag(&bufTagR, R->oid, nstartPagesR);
             release_page(bufTagR, &global_environ);
-            nstartPageR++;
-            if (nstartPageR == nreadPagesR) break;
+            nstartPagesR++;
+            if (nstartPagesR == nreadPagesR) break;
         }
     }
 
     free(R_pages);
 }
+
 typedef struct SortedScan {
     UINT64 ntuple;
     UINT nattrs;
@@ -408,7 +431,8 @@ void sort_table(Table *table, UINT idx, SortedScan *s) {
         tup != NULL;
         tup = get_next_tup(&input_scan)) {
 
-        memcpy(&(s->tuples[curr_tup_id * table->nattrs]), tup, table->nattrs);
+        memcpy(&(s->tuples[curr_tup_id * table->nattrs]), tup,
+            table->nattrs * sizeof(INT));
         curr_tup_id++;
     }
 

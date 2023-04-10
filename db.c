@@ -228,23 +228,23 @@ void reset_IO(){
 void log_read_page(UINT64 pid){
     // the following print info is for testing
     // comment it out to avoid too much output in terminal when developing
-    // printf("Read page %llu\n",pid);
+    printf("Read page %llu\n",pid);
     cf->read_io ++;
 }
 void log_release_page(UINT64 pid){
     // the following print info is for testing
     // comment it out to avoid too much output in terminal when developing
-    // printf("Release page %llu\n",pid);
+    printf("Release page %llu\n",pid);
 
 }
 
 void log_open_file(UINT oid){
     // the following print info is for testing
     // comment it out to avoid too much output in terminal when developing
-    // printf("Open file %u\n",oid);
+    printf("Open file %u\n",oid);
 }
 void log_close_file(UINT oid){
     // the following print info is for testing
     // comment it out to avoid too much output in terminal when developing
-    // printf("Close file %u\n",oid);
+    printf("Close file %u\n",oid);
 }
