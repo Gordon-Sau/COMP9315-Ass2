@@ -750,10 +750,20 @@ void print_fd_buffer(FdBuffer *fd_buffer) {
 }
 #endif
 
+// TODO: check if the link list is correct
+// fd_buffer->lru_tail != -1 -> fd_buffer->vfds[fd_buffer->lru_tail].next_lru = -1;
+// fd_buffer->lru_head != -1 -> fd_buffer->vfds[fd_buffer->lru_head].prev_lru = -1;
+
 // return the vfd
 INT oid_access(FdBuffer *fd_buffer, UINT oid, Database * db) {
 #if DEBUG_fd_pool
     print_fd_buffer(fd_buffer);
+    if (fd_buffer->lru_tail != -1) {
+        assert(fd_buffer->vfds[fd_buffer->lru_tail].next_lru == -1);
+    }
+    if (fd_buffer->lru_head != -1) {
+        assert(fd_buffer->vfds[fd_buffer->lru_head].prev_lru == -1);
+    }
 #endif
     // search if oid is the vfd cache
     // NOTE: may use hash table to speed up the search
@@ -794,15 +804,17 @@ INT oid_access(FdBuffer *fd_buffer, UINT oid, Database * db) {
         INT new_fd = internal_open_file(oid, db);
         fd_buffer->vfds[vfd].fd = new_fd;
         fd_buffer->vfds[vfd].oid = oid;
-        fd_buffer->vfds[vfd].next_lru = -1;
         fd_buffer->vfds[vfd].prev_lru = fd_buffer->lru_tail;
         if (fd_buffer->lru_tail != -1) {
             fd_buffer->vfds[fd_buffer->lru_tail].next_lru = vfd;
         }
         
         fd_buffer->lru_tail = vfd;
+        fd_buffer->vfds[fd_buffer->lru_tail].next_lru = -1;
+
         if (fd_buffer->lru_head == -1) {
             fd_buffer->lru_head = vfd;
+            fd_buffer->vfds[fd_buffer->lru_head].prev_lru = -1;
         }
 
         fd_buffer->free_list_head++;
@@ -827,6 +839,7 @@ INT oid_access(FdBuffer *fd_buffer, UINT oid, Database * db) {
             // keep unchanged
         } else {
             fd_buffer->lru_head = fd_buffer->vfds[vfd].next_lru;
+            fd_buffer->vfds[fd_buffer->lru_head].prev_lru = -1;
             // set mru
             fd_buffer->vfds[fd_buffer->lru_tail].next_lru = vfd;
             fd_buffer->vfds[vfd].prev_lru = fd_buffer->lru_tail;
