@@ -674,7 +674,8 @@ void free_buffer_pool(BufferPool *buffer_pool) {
 }
 
 bool eq_BufferTag(BufferTag bufTag1, BufferTag bufTag2) {
-    return (bufTag1.oid == bufTag2.oid) && (bufTag1.page_index == bufTag2.page_index);
+    return (bufTag1.oid == bufTag2.oid) &&
+        (bufTag1.page_index == bufTag2.page_index);
 }
 
 bool buffer_pool_find_index(BufferTag bufTag, BufferPool *buffer_pool,
@@ -725,10 +726,14 @@ Page *request_page(BufferTag bufTag, Environ *environ) {
             if (buffer_pool->directory[victim].pin_count == 0 &&
                     buffer_pool->directory[victim].usage_count == 0) {
                 buf_index = victim;
-                log_release_page(buffer_pool->directory[victim].buf_tag.
-                    page_index);
-                read_page(bufTag.oid, bufTag.page_index, environ->fd_buffer, environ->db,
-                environ->conf, &(buffer_pool->pages[buf_index]) );
+                if (buffer_pool->directory[buf_index].buf_tag.oid != 0) {
+                    log_release_page(buffer_pool->pages[buf_index].page_id);
+                } 
+                read_page(bufTag.oid, bufTag.page_index, environ->fd_buffer,
+                    environ->db, environ->conf,
+                    &(buffer_pool->pages[buf_index]) );
+                setBufferTag(&(buffer_pool->directory[buf_index].buf_tag),
+                    bufTag.oid, bufTag.page_index);
                 log_read_page(buffer_pool->pages[buf_index].page_id);
                 buffer_pool->next_victim = next_victim(victim, buf_slots);
                 break;
