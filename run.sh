@@ -1,2 +1,2 @@
 # binary_file page_size buffer_slots max_opened_files buffer_replacement_policy database_folder input_data queries output_log
-./main 64 6 3 CLS ./data ./test1/data_1.txt ./test1/query_1.txt ./test1/log.txt
+./main 64 2 3 CLS ./data ./test1/data_1.txt ./test1/query_1.txt ./test1/log.txt

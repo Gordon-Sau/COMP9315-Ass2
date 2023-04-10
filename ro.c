@@ -6,8 +6,10 @@
 #include <unistd.h>
 #include <fcntl.h>
 #include <string.h>
+#include <assert.h>
 #define DEBUG 0
 #define DEBUG_NESTED_LOOP 0
+#define DEBUG_fd_pool 1
 
 typedef INT8 bool;
 
@@ -458,6 +460,7 @@ void nestedLoopJoin(Table *R, const UINT idxR, Table *S, const UINT idxS,
     }
 
     free(R_pages);
+    R_pages = NULL;
 }
 
 typedef struct SortedScan {
@@ -591,6 +594,7 @@ void merge_join(SortedScan *sortedR, SortedScan *sortedS, UINT idxR, UINT idxS,
 
 void freeSortedScan(SortedScan *s) {
     free(s->tuples);
+    s->tuples = NULL;
 }
 
 #if DEBUG
@@ -718,7 +722,11 @@ void init_fd_buffer(FdBuffer *fd_buffer, Conf *conf) {
     fd_buffer->free_list_head = 0;
     fd_buffer->lru_head = -1;
     fd_buffer->lru_tail = -1;
-    fd_buffer->vfds = malloc(conf->file_limit * sizeof(Vfd));
+    if (conf->file_limit == 0) {
+        printf("cannot open any files");
+        exit(1);
+    }
+    fd_buffer->vfds = calloc(conf->file_limit, sizeof(Vfd));
 }
 
 void free_fd_buffer(FdBuffer *fd_buffer) {
@@ -728,21 +736,39 @@ void free_fd_buffer(FdBuffer *fd_buffer) {
         }
     }
     free(fd_buffer->vfds);
+    fd_buffer->vfds = NULL;
     free(fd_buffer);
 }
 
+#if DEBUG_fd_pool
+void print_fd_buffer(FdBuffer *fd_buffer) {
+    printf("fd_buffer:\n");
+    printf("size: %u, free_list_head: %u, lru_head: %u, lru_tail: %u\n", fd_buffer->buffer_size, fd_buffer->free_list_head, fd_buffer->lru_head, fd_buffer->lru_tail);
+    for (UINT i = 0; i < fd_buffer->buffer_size; i++) {
+        printf("i=%u: {fd: %u, oid: %u, next_lru: %u, prev_lru: %u}\n", i,fd_buffer->vfds[i].fd, fd_buffer->vfds[i].oid, fd_buffer->vfds[i].next_lru, fd_buffer->vfds[i].prev_lru);
+    }
+}
+#endif
+
 // return the vfd
 INT oid_access(FdBuffer *fd_buffer, UINT oid, Database * db) {
+#if DEBUG_fd_pool
+    print_fd_buffer(fd_buffer);
+#endif
     // search if oid is the vfd cache
     // NOTE: may use hash table to speed up the search
     for (UINT i = 0; i < fd_buffer->buffer_size; i++) {
         if (fd_buffer->vfds[i].oid == oid) {
             if (fd_buffer->lru_tail != i) {
+#if DEBUG_fd_pool
+                printf("lru_tail: %u\n", i);
+#endif
                 // not mru already
                 // need to set it to the most recently used
                 if (fd_buffer->lru_head == i) {
                     // lru
                     fd_buffer->lru_head = fd_buffer->vfds[i].next_lru;
+                    assert(fd_buffer->lru_head != -1);
                     fd_buffer->vfds[fd_buffer->lru_head].prev_lru = -1;
                 } else {
                     // middle
@@ -770,6 +796,9 @@ INT oid_access(FdBuffer *fd_buffer, UINT oid, Database * db) {
         fd_buffer->vfds[vfd].oid = oid;
         fd_buffer->vfds[vfd].next_lru = -1;
         fd_buffer->vfds[vfd].prev_lru = fd_buffer->lru_tail;
+        if (fd_buffer->lru_tail != -1) {
+            fd_buffer->vfds[fd_buffer->lru_tail].next_lru = vfd;
+        }
         
         fd_buffer->lru_tail = vfd;
         if (fd_buffer->lru_head == -1) {
@@ -828,7 +857,9 @@ void init_buffer_pool(BufferPool *buffer_pool, Conf *conf) {
 
 void free_buffer_pool(BufferPool *buffer_pool) {
     free(buffer_pool->directory);
+    buffer_pool->directory = NULL;
     free(buffer_pool->pages);
+    buffer_pool->pages = NULL;
     free(buffer_pool);
 }
 
