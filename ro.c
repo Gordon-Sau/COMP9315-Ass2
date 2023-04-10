@@ -93,17 +93,22 @@ UINT64 max_tups_per_page(Conf *conf, UINT nattrs) {
     return (conf->page_size - sizeof(UINT64)) / nattrs;
 }
 
-UINT64 table_get_npages(Table *table, UINT page_size) {
-    UINT64 actual_mem_per_page = page_size - sizeof(UINT64);
+UINT64 round_up_div(UINT64 x, UINT64 y) {
     // rounding up reference: https://stackoverflow.com/a/2422722
-    return (table->ntuples * table->nattrs + (actual_mem_per_page - 1)) /
-        actual_mem_per_page;
+    return (x + (y-1)) / y;
+}
+
+UINT64 table_get_npages(Table *table, UINT page_size) {
+    UINT64 tups_per_page = max_tups_per_page(
+        global_environ.conf, table->nattrs);
+    return round_up_div(table->ntuples, tups_per_page);
 }
 
 // tuple iterator
 typedef struct BufferedScan {
+    UINT nattrs;
     Page **buffered_pages;
-    UINT buffered_pages_size;
+    UINT n_buffered_pages;
     UINT curr_buffered_page_index;
     UINT64 curr_page;
     Tuple tup; // the next tuple
@@ -112,23 +117,28 @@ typedef struct BufferedScan {
     UINT64 ntuples; // number of tuples in the table
 } BufferedScan;
 
+Tuple BufferedScan_get_tup_pointer(BufferedScan *s) {
+    return &(s->buffered_pages[s->curr_buffered_page_index]->
+        data[s->tup_id * s->nattrs]);
+}
+
 void BufferedScan_set_buffer(BufferedScan *s, Page **new_buffer_pages, UINT
-    buffered_pages_size, UINT64 curr_page) {
+    n_buffered_pages, UINT64 curr_page) {
 
     s->curr_buffered_page_index = 0;
     s->tup_id = 0;
     s->buffered_pages = new_buffer_pages;
-    s->buffered_pages_size = buffered_pages_size;
-    if (s->buffered_pages_size == 0) {
+    s->n_buffered_pages = n_buffered_pages;
+    if (s->n_buffered_pages == 0) {
         printf("Buffer size cannot be 0");
         exit(1);
     }
     s->curr_page = curr_page;
-    s->tup = s->buffered_pages[s->curr_buffered_page_index]->data;
+    s->tup = BufferedScan_get_tup_pointer(s);
 }
 
 void startBufferedScan(Table *table, Page **buffered_pages, UINT64 curr_page,
-    UINT buffered_pages_size, BufferedScan *s) {
+    UINT n_buffered_pages, BufferedScan *s) {
     
     if (global_environ.conf->page_size <= sizeof(UINT64)) {
         printf("There are no tuples in a page. page size is too small.");
@@ -139,20 +149,20 @@ void startBufferedScan(Table *table, Page **buffered_pages, UINT64 curr_page,
     if (table->ntuples == 0) {
         s->tup = NULL;
     }
+    s->nattrs = table->nattrs;
     s->npages = table_get_npages(table, global_environ.conf->page_size);
 
-    BufferedScan_set_buffer(s, buffered_pages, buffered_pages_size, curr_page);
+    BufferedScan_set_buffer(s, buffered_pages, n_buffered_pages, curr_page);
 }
 
 
-
-Tuple BufferedScan_get_next_tup(BufferedScan *s, UINT nattrs) {
+Tuple BufferedScan_get_next_tup(BufferedScan *s) {
     UINT page_size = global_environ.conf->page_size;
     Tuple t = s->tup;
     if (t == NULL) return NULL;
     // advance the iterator
     s->tup_id += 1;
-    if (s->tup_id == max_tups_per_page(global_environ.conf, nattrs)) {
+    if (s->tup_id == max_tups_per_page(global_environ.conf, s->nattrs)) {
         s->tup_id = 0;
         s->curr_page += 1;
         s->curr_buffered_page_index += 1;
@@ -163,8 +173,7 @@ Tuple BufferedScan_get_next_tup(BufferedScan *s, UINT nattrs) {
         // last tuple has been returned already
         s->tup = NULL;
     } else {
-        s->tup = &(s->buffered_pages[s->curr_buffered_page_index]->
-            data[nattrs * s->tup_id]);
+        s->tup = BufferedScan_get_tup_pointer(s);
     }
     return t;
 }
@@ -186,8 +195,8 @@ void startScan(Table *table, Scan *s) {
     startBufferedScan(table, &(s->page), 0, 1, &(s->buffered_scan));
 }
 
-Tuple get_next_tup(Scan *s, UINT nattrs) {
-    Tuple curr_tup = BufferedScan_get_next_tup(&(s->buffered_scan), nattrs);
+Tuple get_next_tup(Scan *s) {
+    Tuple curr_tup = BufferedScan_get_next_tup(&(s->buffered_scan));
     UINT page_size = global_environ.conf->page_size;
     // advance the iterator
     if (curr_tup == NULL) {
@@ -206,7 +215,7 @@ Tuple get_next_tup(Scan *s, UINT nattrs) {
             s->page = request_page(s->buf_tag, &global_environ);
             BufferedScan_set_buffer(&(s->buffered_scan), &(s->page), 1,
                 s->buf_tag.page_index);
-            return BufferedScan_get_next_tup(&(s->buffered_scan), nattrs);
+            return BufferedScan_get_next_tup(&(s->buffered_scan));
         }
     } else {
         return curr_tup;
@@ -285,9 +294,9 @@ _Table* sel(const UINT idx, const INT cond_val, const char* table_name){
         global_environ.conf, table->nattrs);
 
     for (
-        Tuple tup = get_next_tup(&s, table->nattrs);
+        Tuple tup = get_next_tup(&s);
         tup != NULL;
-        tup = get_next_tup(&s, table->nattrs)) {
+        tup = get_next_tup(&s)) {
         if (tup[idx] == cond_val) {
             // append to _Table *
             appendOutputTable(&out, copy_tuple(tup, table->nattrs),
@@ -335,13 +344,13 @@ void nestedLoopJoin(Table *R, const UINT idxR, Table *S, const UINT idxS,
         Scan scanS;
         startScan(S, &scanS);
 
-        for (Tuple r_tup = BufferedScan_get_next_tup(&scanR, R->nattrs);
+        for (Tuple r_tup = BufferedScan_get_next_tup(&scanR);
             r_tup != NULL;
-            r_tup = BufferedScan_get_next_tup(&scanR, R->nattrs)) {
+            r_tup = BufferedScan_get_next_tup(&scanR)) {
 
-            for (Tuple s_tup = get_next_tup(&scanS, S->nattrs);
+            for (Tuple s_tup = get_next_tup(&scanS);
                 s_tup != NULL;
-                s_tup = get_next_tup(&scanS, S->nattrs)) {
+                s_tup = get_next_tup(&scanS)) {
 
                 if (r_tup[idxR] == s_tup[idxS]) {
                     Tuple output_tup;
@@ -398,9 +407,9 @@ void sort_table(Table *table, UINT idx, SortedScan *s) {
     Scan input_scan;
     startScan(table, &input_scan);
     UINT64 curr_tup_id = 0;
-    for (Tuple tup = get_next_tup(&input_scan, table->nattrs);
+    for (Tuple tup = get_next_tup(&input_scan);
         tup != NULL;
-        tup = get_next_tup(&input_scan, table->nattrs)) {
+        tup = get_next_tup(&input_scan)) {
 
         memcpy(&(s->tuples[curr_tup_id * table->nattrs]), tup, table->nattrs);
         curr_tup_id++;
@@ -720,6 +729,21 @@ Page *request_page(BufferTag bufTag, Environ *environ) {
     INT8 found = buffer_pool_find_index(bufTag, buffer_pool, buf_slots, 
         &buf_index);
     if (!found) {
+        // for debugging
+        {
+            bool has_free = 0;
+            for (int i = 0; i < buf_slots; i++) {
+                if (buffer_pool->directory[i].pin_count == 0) {
+                    has_free = 1;
+                    break;
+                }
+            }
+            if (!has_free) {
+                printf("ERROR: no free page to be eviceted! acessing %u %lu",
+                    bufTag.oid, bufTag.page_index);
+                return NULL;
+            }
+        }
 
         INT victim = buffer_pool->next_victim;
         for (;1; victim = next_victim(victim, buf_slots)) {
