@@ -6,7 +6,7 @@
 #include <unistd.h>
 #include <fcntl.h>
 #include <string.h>
-#define DEBUG 1
+#define DEBUG 0
 
 typedef INT8 bool;
 
@@ -291,10 +291,15 @@ void appendOutputTable(ExtendableOutputTable *out, Tuple tup, Conf *conf) {
 
 #if DEBUG
 void print_tup(Tuple tup, UINT nattrs) {
-    for (UINT i = 0; i < nattrs; i++) {
-        printf("%d ", tup[i]);
+    if (tup != NULL) {
+        for (UINT i = 0; i < nattrs; i++) {
+            printf("%d ", tup[i]);
+        }
+        printf("\n");
+    } else {
+        printf("NULL\n");
     }
-    printf("\n");
+
 }
 
 void print_table(const char *table_name) {
@@ -474,6 +479,7 @@ Tuple SortedScan_get_next(SortedScan *s) {
     if (s->curr_tup >= s->ntuple) {
         return NULL;
     }
+    printf("curr_tup: %lu\n", s->curr_tup);
     Tuple tup = &(s->tuples[s->curr_tup * s->nattrs]);
     s->curr_tup++;
     return tup;
@@ -489,27 +495,52 @@ void SortedScan_set_tup_id(SortedScan *s, UINT64 tup_id) {
 
 void merge_join(SortedScan *sortedR, SortedScan *sortedS, UINT idxR, UINT idxS,
     ExtendableOutputTable *output) {
-    
+#if DEBUG
+    printf("merging:\n");
+#endif
     Tuple tupR = SortedScan_get_next(sortedR);
     Tuple tupS;
     while (tupR != NULL &&
         (tupS = SortedScan_get_next(sortedS)) != NULL) {
 
+        #if DEBUG
+                printf("A\n");
+                print_tup(tupR, sortedR->nattrs);
+                print_tup(tupS, sortedS->nattrs);
+        #endif
+
         while (tupR != NULL && (tupR[idxR] < tupS[idxS])) {
             tupR = SortedScan_get_next(sortedR);
+            #if DEBUG
+                    printf("B\n");
+                    print_tup(tupR, sortedR->nattrs);
+                    print_tup(tupS, sortedS->nattrs);
+            #endif
         }
         if (tupR == NULL) break;
 
         while (tupS != NULL && (tupS[idxS] < tupR[idxR])) {
             tupS = SortedScan_get_next(sortedS);
+            #if DEBUG
+                    printf("C\n");
+                    print_tup(tupR, sortedR->nattrs);
+                    print_tup(tupS, sortedS->nattrs);
+            #endif
         }
         if (tupS == NULL) break;
 
         // found equal
         // store the tuple id of the start of the current run
-        UINT64 start_run_id = SortedScan_get_curr_tup_id(sortedS);
-
+        UINT64 start_run_id = SortedScan_get_curr_tup_id(sortedS) - 1;
+#if DEBUG
+        printf("start_run_id: %lu\n", start_run_id);
+#endif
         while (tupR != NULL && (tupR[idxR] == tupS[idxS])) {
+            #if DEBUG
+                    printf("D\n");
+                    print_tup(tupR, sortedR->nattrs);
+                    print_tup(tupS, sortedS->nattrs);
+            #endif
             while (tupS != NULL && (tupR[idxR] == tupS[idxS])) {
                 appendOutputTable(
                     output,
@@ -519,6 +550,11 @@ void merge_join(SortedScan *sortedR, SortedScan *sortedS, UINT idxR, UINT idxS,
             }
             tupR = SortedScan_get_next(sortedR);
             SortedScan_set_tup_id(sortedS, start_run_id);
+            #if DEBUG
+                    printf("E\n");
+                    print_tup(tupR, sortedR->nattrs);
+                    print_tup(tupS, sortedS->nattrs);
+            #endif
         }
 
     }
@@ -528,12 +564,31 @@ void freeSortedScan(SortedScan *s) {
     free(s->tuples);
 }
 
+#if DEBUG
+void print_sorted_table(SortedScan *s) {
+    Tuple tup = SortedScan_get_next(s);
+    while (tup != NULL) {
+        print_tup(tup, s->nattrs);
+        tup = SortedScan_get_next(s);
+    }
+    printf("\n");
+    SortedScan_set_tup_id(s, 0);
+}
+#endif
+
 void sortMergeJoin(Table *R, UINT idxR, Table *S, UINT idxS,
         ExtendableOutputTable *output) {
     SortedScan sortedR;
     sort_table(R, idxR, &sortedR);
+#if DEBUG
+    printf("sortedScan: \n");
+    print_sorted_table(&sortedR);
+#endif
     SortedScan sortedS;
     sort_table(S, idxS, &sortedS);
+#if DEBUG
+    print_sorted_table(&sortedS);
+#endif
     merge_join(&sortedR, &sortedS, idxR, idxS, output);
     freeSortedScan(&sortedR);
     freeSortedScan(&sortedS);
@@ -568,6 +623,9 @@ _Table* join(const UINT idx1, const char* table1_name, const UINT idx2, const ch
             table_get_npages(table1, page_size) + 
             table_get_npages(table2, page_size) ) {
         // nested loop join
+#if DEBUG
+        printf("nested loop join invoke()\n");
+#endif
         // outer should be the smaller table
         if (table1->ntuples > table2->ntuples) {
             nestedLoopJoin(table2, idx2, table1, idx1, &out, 1);
@@ -576,6 +634,9 @@ _Table* join(const UINT idx1, const char* table1_name, const UINT idx2, const ch
         }
     } else {
         // sort merge join
+#if DEBUG
+        printf("sort merge join invoke()\n");
+#endif
         sortMergeJoin(table1, idx1, table2, idx2, &out);
     }
 
@@ -776,12 +837,18 @@ void free_environ(Environ *environ) {
     free_fd_buffer(environ->fd_buffer);
 }
 
+Page *buffer_get_page_ptr(const BufferPool *buffer_pool, const UINT buf_index,
+const UINT page_size) {
+    return ((Page *)(&(buffer_pool->pages[buf_index * page_size])));
+}
+
 Page *request_page(BufferTag bufTag, Environ *environ) {
     UINT buf_index;
     BufferPool *buffer_pool = environ->buffer_pool;
     UINT buf_slots = environ->conf->buf_slots;
     INT8 found = buffer_pool_find_index(bufTag, buffer_pool, buf_slots, 
         &buf_index);
+    UINT page_size = environ->conf->page_size;
     if (!found) {
         // for debugging
         {
@@ -804,15 +871,15 @@ Page *request_page(BufferTag bufTag, Environ *environ) {
             if (buffer_pool->directory[victim].pin_count == 0 &&
                     buffer_pool->directory[victim].usage_count == 0) {
                 buf_index = victim;
+                Page *page_ptr = buffer_get_page_ptr(buffer_pool, buf_index, page_size);
                 if (buffer_pool->directory[buf_index].buf_tag.oid != 0) {
-                    log_release_page(buffer_pool->pages[buf_index].page_id);
+                    log_release_page(page_ptr->page_id);
                 } 
                 read_page(bufTag.oid, bufTag.page_index, environ->fd_buffer,
-                    environ->db, environ->conf,
-                    &(buffer_pool->pages[buf_index]) );
+                    environ->db, environ->conf, page_ptr);
                 setBufferTag(&(buffer_pool->directory[buf_index].buf_tag),
                     bufTag.oid, bufTag.page_index);
-                log_read_page(buffer_pool->pages[buf_index].page_id);
+                log_read_page(page_ptr->page_id);
                 buffer_pool->next_victim = next_victim(victim, buf_slots);
                 break;
             } else {
@@ -832,14 +899,15 @@ Page *request_page(BufferTag bufTag, Environ *environ) {
     printf("page oid: %u, page_index: %lu is allocated at buf_index: %u (pointer: %p)\n", bufTag.oid, bufTag.page_index, buf_index, &(buffer_pool->pages[buf_index]));
     printf("buffer:\n");
     for (UINT i = 0; i < buf_slots; i++) {
-        printf("\tpage_id: %lu\n\tdata: ", buffer_pool->pages[i].page_id);
-        for (UINT j = 0; j < (environ->conf->page_size - sizeof(UINT64)) / sizeof(INT); j++) {
-            printf("%d,", buffer_pool->pages[i].data[j]);
+        Page *page_ptr = buffer_get_page_ptr(buffer_pool, i, page_size);
+        printf("\tpage_id: %lu\n\tdata: ", page_ptr->page_id);
+        for (UINT j = 0; j < (page_size - sizeof(UINT64)) / sizeof(INT); j++) {
+            printf("%d,", page_ptr->data[j]);
         }
         printf("\n");
     }
 #endif
-    return &(buffer_pool->pages[buf_index ]);
+    return buffer_get_page_ptr(buffer_pool, buf_index, page_size);
 }
 
 void release_page(BufferTag bufTag, Environ *environ) {
