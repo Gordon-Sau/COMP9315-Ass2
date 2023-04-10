@@ -7,6 +7,7 @@
 #include <fcntl.h>
 #include <string.h>
 #define DEBUG 0
+#define DEBUG_NESTED_LOOP 0
 
 typedef INT8 bool;
 
@@ -63,6 +64,9 @@ void free_environ(Environ *environ);
 Environ global_environ;
 Page *request_page(BufferTag bufTag, Environ *environ);
 void release_page(BufferTag bufTag, Environ *Environ);
+#if DEBUG
+void print_tup(Tuple tup, UINT nattrs);
+#endif
 
 void init(){
     // do some initialization here.
@@ -127,7 +131,7 @@ bool is_end_tup(BufferedScan *s) {
 
 #if DEBUG
 void print_bufferedScan_state(BufferedScan *s) {
-    printf("BuffererdScan: curr_page: %lu, curr_buffered_page_index: %u, tup_id: %lu, nattrs: %u, buffered_pages: %p, curr_buffered_page: %p\n", s->curr_page, s->curr_buffered_page_index, s->tup_id, s->nattrs, s->buffered_pages, s->buffered_pages[s->curr_buffered_page_index]);
+    printf("BuffererdScan: curr_page: %lu, curr_buffered_page_index: %u, tup_id: %lu, nattrs: %u, buffered_pages: %p, curr_buffered_page: %p, n_buffered_pages: %u\n", s->curr_page, s->curr_buffered_page_index, s->tup_id, s->nattrs, s->buffered_pages, s->buffered_pages[s->curr_buffered_page_index], s->n_buffered_pages);
 }
 #endif
 
@@ -189,6 +193,10 @@ void startBufferedScan(Table *table, Page **buffered_pages, UINT64 curr_page,
 
 Tuple BufferedScan_get_next_tup(BufferedScan *s) {
     Tuple t = BufferedScan_get_tup_pointer(s);
+#if DEBUG
+    printf("BufferedScan_get_next_tup:");
+    print_tup(t, s->nattrs);
+#endif
     // end of table, do not advance the pointer
     if (t == NULL) return NULL;
     // advance the iterator
@@ -342,7 +350,9 @@ _Table* sel(const UINT idx, const INT cond_val, const char* table_name){
         Tuple tup = get_next_tup(&s);
         tup != NULL;
         tup = get_next_tup(&s)) {
+#if DEBUG
         print_tup(tup, table->nattrs);
+#endif
         if (tup[idx] == cond_val) {
             // append to _Table *
             appendOutputTable(&out, copy_tuple(tup, table->nattrs),
@@ -366,6 +376,9 @@ void nestedLoopJoin(Table *R, const UINT idxR, Table *S, const UINT idxS,
 
     Conf *conf = global_environ.conf;
     UINT64 npagesR = table_get_npages(R, conf->page_size);
+#if DEBUG
+    printf("npagesR = %lu\n", npagesR);
+#endif
     UINT N = conf->buf_slots;
     if (N == 1) {
         printf("cannot do nested loop join with just 1 buffer");
@@ -394,17 +407,27 @@ void nestedLoopJoin(Table *R, const UINT idxR, Table *S, const UINT idxS,
         BufferedScan scanR;
         startBufferedScan(R, R_pages, nstartPagesR, nreadPagesR - nstartPagesR,
             &scanR);
-
+#if DEBUG
+        printf("scanR:\n");
+        print_bufferedScan_state(&scanR);
+#endif
         Scan scanS;
-        startScan(S, &scanS);
 
         for (Tuple r_tup = BufferedScan_get_next_tup(&scanR);
             r_tup != NULL;
             r_tup = BufferedScan_get_next_tup(&scanR)) {
 
+            startScan(S, &scanS);
             for (Tuple s_tup = get_next_tup(&scanS);
                 s_tup != NULL;
                 s_tup = get_next_tup(&scanS)) {
+
+#if DEBUG
+                printf("checking tuples:\n");
+                print_tup(r_tup, R->nattrs);
+                print_tup(s_tup, S->nattrs);
+#endif
+
 
                 if (r_tup[idxR] == s_tup[idxS]) {
                     Tuple output_tup;
@@ -418,6 +441,10 @@ void nestedLoopJoin(Table *R, const UINT idxR, Table *S, const UINT idxS,
                     appendOutputTable(output, output_tup, conf);
                 }
             }
+#if DEBUG
+            printf("r_tup: ");
+            print_tup(r_tup, R->nattrs);
+#endif
         }
 
         // release N-1 pages of R
@@ -479,7 +506,9 @@ Tuple SortedScan_get_next(SortedScan *s) {
     if (s->curr_tup >= s->ntuple) {
         return NULL;
     }
+#if DEBUG
     printf("curr_tup: %lu\n", s->curr_tup);
+#endif
     Tuple tup = &(s->tuples[s->curr_tup * s->nattrs]);
     s->curr_tup++;
     return tup;
@@ -619,9 +648,15 @@ _Table* join(const UINT idx1, const char* table1_name, const UINT idx2, const ch
         global_environ.conf, table1->nattrs + table2->nattrs);
 
     UINT64 page_size = global_environ.conf->page_size;
-    if (global_environ.conf->buf_slots <
+    bool are_pages_in_mem = global_environ.conf->buf_slots <
             table_get_npages(table1, page_size) + 
-            table_get_npages(table2, page_size) ) {
+            table_get_npages(table2, page_size);
+
+    #if DEBUG_NESTED_LOOP
+        are_pages_in_mem = 1;
+    #endif
+
+    if (are_pages_in_mem) {
         // nested loop join
 #if DEBUG
         printf("nested loop join invoke()\n");
