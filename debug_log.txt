@@ -1,0 +1,192 @@
+Page size: 64, buffer slots: 6, limit of opened files: 3, buffer replacement policy: CLS
+Input data path:./test1/data_1.txt
+init() is invoked.
+sel() is invoked.
+Open file 28
+Read page 0
+page oid: 28, page_index: 0 is allocated at buf_index: 0 (pointer: 0x55d39a652570)
+buffer:
+	page_id: 0
+	data: 1314,520,8888,2023,1,5,23,54,1,2,3,4,1024,0,
+	page_id: 2233382995234
+	data: 8888,2023,1,5,23,54,1,2,3,4,1024,0,0,0,
+	page_id: 8688718848696
+	data: 1,5,23,54,1,2,3,4,1024,0,0,0,0,0,
+	page_id: 21474836481
+	data: 23,54,1,2,3,4,1024,0,0,0,0,0,0,0,
+	page_id: 231928234007
+	data: 1,2,3,4,1024,0,0,0,0,0,0,0,0,0,
+	page_id: 8589934593
+	data: 3,4,1024,0,0,0,0,0,0,0,0,0,0,0,
+BuffererdScan: curr_page: 0, curr_buffered_page_index: 0, tup_id: 0, nattrs: 4, buffered_pages: 0x7ffc547d4188, curr_buffered_page: 0x55d39a652570
+1314 520 8888 2023 
+BuffererdScan: curr_page: 0, curr_buffered_page_index: 0, tup_id: 1, nattrs: 4, buffered_pages: 0x7ffc547d4188, curr_buffered_page: 0x55d39a652570
+1 5 23 54 
+BuffererdScan: curr_page: 0, curr_buffered_page_index: 0, tup_id: 2, nattrs: 4, buffered_pages: 0x7ffc547d4188, curr_buffered_page: 0x55d39a652570
+1 2 3 4 
+Read page 1
+page oid: 28, page_index: 1 is allocated at buf_index: 1 (pointer: 0x55d39a652578)
+buffer:
+	page_id: 0
+	data: 1,0,5,78,8,2,0,1,3,8,1,0,40,2,
+	page_id: 1
+	data: 5,78,8,2,0,1,3,8,1,0,40,2,0,-1704643232,
+	page_id: 335007449093
+	data: 8,2,0,1,3,8,1,0,40,2,0,-1704643232,0,0,
+	page_id: 8589934600
+	data: 0,1,3,8,1,0,40,2,0,-1704643232,0,0,0,0,
+	page_id: 4294967296
+	data: 3,8,1,0,40,2,0,-1704643232,0,0,0,0,0,0,
+	page_id: 34359738371
+	data: 1,0,40,2,0,-1704643232,0,0,0,0,0,0,0,0,
+BuffererdScan: curr_page: 1, curr_buffered_page_index: 0, tup_id: 0, nattrs: 4, buffered_pages: 0x7ffc547d4188, curr_buffered_page: 0x55d39a652578
+5 78 8 2 
+sel() is invoked.
+requested page oid: 28, page_index: 0 already exists in the buffer!
+page oid: 28, page_index: 0 is allocated at buf_index: 0 (pointer: 0x55d39a652570)
+buffer:
+	page_id: 0
+	data: 1,0,5,78,8,2,0,1,3,8,1,0,40,2,
+	page_id: 1
+	data: 5,78,8,2,0,1,3,8,1,0,40,2,0,-1704643232,
+	page_id: 335007449093
+	data: 8,2,0,1,3,8,1,0,40,2,0,-1704643232,0,0,
+	page_id: 8589934600
+	data: 0,1,3,8,1,0,40,2,0,-1704643232,0,0,0,0,
+	page_id: 4294967296
+	data: 3,8,1,0,40,2,0,-1704643232,0,0,0,0,0,0,
+	page_id: 34359738371
+	data: 1,0,40,2,0,-1704643232,0,0,0,0,0,0,0,0,
+BuffererdScan: curr_page: 0, curr_buffered_page_index: 0, tup_id: 0, nattrs: 4, buffered_pages: 0x7ffc547d4188, curr_buffered_page: 0x55d39a652570
+1 0 5 78 
+BuffererdScan: curr_page: 0, curr_buffered_page_index: 0, tup_id: 1, nattrs: 4, buffered_pages: 0x7ffc547d4188, curr_buffered_page: 0x55d39a652570
+8 2 0 1 
+BuffererdScan: curr_page: 0, curr_buffered_page_index: 0, tup_id: 2, nattrs: 4, buffered_pages: 0x7ffc547d4188, curr_buffered_page: 0x55d39a652570
+3 8 1 0 
+requested page oid: 28, page_index: 1 already exists in the buffer!
+page oid: 28, page_index: 1 is allocated at buf_index: 1 (pointer: 0x55d39a652578)
+buffer:
+	page_id: 0
+	data: 1,0,5,78,8,2,0,1,3,8,1,0,40,2,
+	page_id: 1
+	data: 5,78,8,2,0,1,3,8,1,0,40,2,0,-1704643232,
+	page_id: 335007449093
+	data: 8,2,0,1,3,8,1,0,40,2,0,-1704643232,0,0,
+	page_id: 8589934600
+	data: 0,1,3,8,1,0,40,2,0,-1704643232,0,0,0,0,
+	page_id: 4294967296
+	data: 3,8,1,0,40,2,0,-1704643232,0,0,0,0,0,0,
+	page_id: 34359738371
+	data: 1,0,40,2,0,-1704643232,0,0,0,0,0,0,0,0,
+BuffererdScan: curr_page: 1, curr_buffered_page_index: 0, tup_id: 0, nattrs: 4, buffered_pages: 0x7ffc547d4188, curr_buffered_page: 0x55d39a652578
+5 78 8 2 
+join() is invoked.
+requested page oid: 28, page_index: 0 already exists in the buffer!
+page oid: 28, page_index: 0 is allocated at buf_index: 0 (pointer: 0x55d39a652570)
+buffer:
+	page_id: 0
+	data: 1,0,5,78,8,2,0,1,3,8,1,0,40,2,
+	page_id: 1
+	data: 5,78,8,2,0,1,3,8,1,0,40,2,0,-1704643232,
+	page_id: 335007449093
+	data: 8,2,0,1,3,8,1,0,40,2,0,-1704643232,0,0,
+	page_id: 8589934600
+	data: 0,1,3,8,1,0,40,2,0,-1704643232,0,0,0,0,
+	page_id: 4294967296
+	data: 3,8,1,0,40,2,0,-1704643232,0,0,0,0,0,0,
+	page_id: 34359738371
+	data: 1,0,40,2,0,-1704643232,0,0,0,0,0,0,0,0,
+BuffererdScan: curr_page: 0, curr_buffered_page_index: 0, tup_id: 0, nattrs: 4, buffered_pages: 0x7ffc547d4098, curr_buffered_page: 0x55d39a652570
+BuffererdScan: curr_page: 0, curr_buffered_page_index: 0, tup_id: 1, nattrs: 4, buffered_pages: 0x7ffc547d4098, curr_buffered_page: 0x55d39a652570
+BuffererdScan: curr_page: 0, curr_buffered_page_index: 0, tup_id: 2, nattrs: 4, buffered_pages: 0x7ffc547d4098, curr_buffered_page: 0x55d39a652570
+requested page oid: 28, page_index: 1 already exists in the buffer!
+page oid: 28, page_index: 1 is allocated at buf_index: 1 (pointer: 0x55d39a652578)
+buffer:
+	page_id: 0
+	data: 1,0,5,78,8,2,0,1,3,8,1,0,40,2,
+	page_id: 1
+	data: 5,78,8,2,0,1,3,8,1,0,40,2,0,-1704643232,
+	page_id: 335007449093
+	data: 8,2,0,1,3,8,1,0,40,2,0,-1704643232,0,0,
+	page_id: 8589934600
+	data: 0,1,3,8,1,0,40,2,0,-1704643232,0,0,0,0,
+	page_id: 4294967296
+	data: 3,8,1,0,40,2,0,-1704643232,0,0,0,0,0,0,
+	page_id: 34359738371
+	data: 1,0,40,2,0,-1704643232,0,0,0,0,0,0,0,0,
+BuffererdScan: curr_page: 1, curr_buffered_page_index: 0, tup_id: 0, nattrs: 4, buffered_pages: 0x7ffc547d4098, curr_buffered_page: 0x55d39a652578
+Open file 30
+Read page 0
+page oid: 30, page_index: 0 is allocated at buf_index: 2 (pointer: 0x55d39a652580)
+buffer:
+	page_id: 0
+	data: 1,0,0,0,13,2023,2,5,3,2,0,1,7,0,
+	page_id: 1
+	data: 0,0,13,2023,2,5,3,2,0,1,7,0,3,32,
+	page_id: 0
+	data: 13,2023,2,5,3,2,0,1,7,0,3,32,40,1,
+	page_id: 8688718839821
+	data: 2,5,3,2,0,1,7,0,3,32,40,1,0,0,
+	page_id: 21474836482
+	data: 3,2,0,1,7,0,3,32,40,1,0,0,0,0,
+	page_id: 8589934595
+	data: 0,1,7,0,3,32,40,1,0,0,0,0,0,0,
+BuffererdScan: curr_page: 0, curr_buffered_page_index: 0, tup_id: 0, nattrs: 2, buffered_pages: 0x7ffc547d4098, curr_buffered_page: 0x55d39a652580
+BuffererdScan: curr_page: 0, curr_buffered_page_index: 0, tup_id: 1, nattrs: 2, buffered_pages: 0x7ffc547d4098, curr_buffered_page: 0x55d39a652580
+BuffererdScan: curr_page: 0, curr_buffered_page_index: 0, tup_id: 2, nattrs: 2, buffered_pages: 0x7ffc547d4098, curr_buffered_page: 0x55d39a652580
+join() is invoked.
+requested page oid: 28, page_index: 0 already exists in the buffer!
+page oid: 28, page_index: 0 is allocated at buf_index: 0 (pointer: 0x55d39a652570)
+buffer:
+	page_id: 0
+	data: 1,0,0,0,13,2023,2,5,3,2,0,1,7,0,
+	page_id: 1
+	data: 0,0,13,2023,2,5,3,2,0,1,7,0,3,32,
+	page_id: 0
+	data: 13,2023,2,5,3,2,0,1,7,0,3,32,40,1,
+	page_id: 8688718839821
+	data: 2,5,3,2,0,1,7,0,3,32,40,1,0,0,
+	page_id: 21474836482
+	data: 3,2,0,1,7,0,3,32,40,1,0,0,0,0,
+	page_id: 8589934595
+	data: 0,1,7,0,3,32,40,1,0,0,0,0,0,0,
+BuffererdScan: curr_page: 0, curr_buffered_page_index: 0, tup_id: 0, nattrs: 4, buffered_pages: 0x7ffc547d4098, curr_buffered_page: 0x55d39a652570
+BuffererdScan: curr_page: 0, curr_buffered_page_index: 0, tup_id: 1, nattrs: 4, buffered_pages: 0x7ffc547d4098, curr_buffered_page: 0x55d39a652570
+BuffererdScan: curr_page: 0, curr_buffered_page_index: 0, tup_id: 2, nattrs: 4, buffered_pages: 0x7ffc547d4098, curr_buffered_page: 0x55d39a652570
+requested page oid: 28, page_index: 1 already exists in the buffer!
+page oid: 28, page_index: 1 is allocated at buf_index: 1 (pointer: 0x55d39a652578)
+buffer:
+	page_id: 0
+	data: 1,0,0,0,13,2023,2,5,3,2,0,1,7,0,
+	page_id: 1
+	data: 0,0,13,2023,2,5,3,2,0,1,7,0,3,32,
+	page_id: 0
+	data: 13,2023,2,5,3,2,0,1,7,0,3,32,40,1,
+	page_id: 8688718839821
+	data: 2,5,3,2,0,1,7,0,3,32,40,1,0,0,
+	page_id: 21474836482
+	data: 3,2,0,1,7,0,3,32,40,1,0,0,0,0,
+	page_id: 8589934595
+	data: 0,1,7,0,3,32,40,1,0,0,0,0,0,0,
+BuffererdScan: curr_page: 1, curr_buffered_page_index: 0, tup_id: 0, nattrs: 4, buffered_pages: 0x7ffc547d4098, curr_buffered_page: 0x55d39a652578
+requested page oid: 30, page_index: 0 already exists in the buffer!
+page oid: 30, page_index: 0 is allocated at buf_index: 2 (pointer: 0x55d39a652580)
+buffer:
+	page_id: 0
+	data: 1,0,0,0,13,2023,2,5,3,2,0,1,7,0,
+	page_id: 1
+	data: 0,0,13,2023,2,5,3,2,0,1,7,0,3,32,
+	page_id: 0
+	data: 13,2023,2,5,3,2,0,1,7,0,3,32,40,1,
+	page_id: 8688718839821
+	data: 2,5,3,2,0,1,7,0,3,32,40,1,0,0,
+	page_id: 21474836482
+	data: 3,2,0,1,7,0,3,32,40,1,0,0,0,0,
+	page_id: 8589934595
+	data: 0,1,7,0,3,32,40,1,0,0,0,0,0,0,
+BuffererdScan: curr_page: 0, curr_buffered_page_index: 0, tup_id: 0, nattrs: 2, buffered_pages: 0x7ffc547d4098, curr_buffered_page: 0x55d39a652580
+BuffererdScan: curr_page: 0, curr_buffered_page_index: 0, tup_id: 1, nattrs: 2, buffered_pages: 0x7ffc547d4098, curr_buffered_page: 0x55d39a652580
+BuffererdScan: curr_page: 0, curr_buffered_page_index: 0, tup_id: 2, nattrs: 2, buffered_pages: 0x7ffc547d4098, curr_buffered_page: 0x55d39a652580
+Close file 28
+Close file 30
+release() is invoked.

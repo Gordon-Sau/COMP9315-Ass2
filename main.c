@@ -49,6 +49,8 @@ int main(int argc, char **argv){
     // implement your initialization function.
     init();
 
+    // print_table("t1_name");
+    // print_table("t2_name");
 
     // run test cases and write the log file
     run(argv[7],argv[8]);

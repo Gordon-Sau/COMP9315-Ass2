@@ -12,4 +12,6 @@ void release();
 _Table* sel(const UINT idx, const INT cond_val, const char* table_name);
 
 _Table* join(const UINT idx1, const char* table1_name, const UINT idx2, const char* table2_name);
+
+void print_table(const char* table_name);
 #endif

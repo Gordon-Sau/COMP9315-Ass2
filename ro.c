@@ -6,6 +6,7 @@
 #include <unistd.h>
 #include <fcntl.h>
 #include <string.h>
+#define DEBUG 1
 
 typedef INT8 bool;
 
@@ -45,7 +46,7 @@ typedef struct BufferDesc {
 
 typedef struct BufferPool {
     BufferDesc *directory;
-    Page *pages;
+    INT8 *pages;
     UINT next_victim;
 } BufferPool;
 
@@ -124,6 +125,12 @@ bool is_end_tup(BufferedScan *s) {
     return (s->tup_id >= s->ntuples - s->curr_page * tups_per_page);
 }
 
+#if DEBUG
+void print_bufferedScan_state(BufferedScan *s) {
+    printf("BuffererdScan: curr_page: %lu, curr_buffered_page_index: %u, tup_id: %lu, nattrs: %u, buffered_pages: %p, curr_buffered_page: %p\n", s->curr_page, s->curr_buffered_page_index, s->tup_id, s->nattrs, s->buffered_pages, s->buffered_pages[s->curr_buffered_page_index]);
+}
+#endif
+
 Tuple BufferedScan_get_tup_pointer(BufferedScan *s) {
     UINT64 tups_per_page = max_tups_per_page(global_environ.conf, s->nattrs);
 
@@ -144,7 +151,9 @@ Tuple BufferedScan_get_tup_pointer(BufferedScan *s) {
     if (is_end_tup(s)) {
         return NULL;
     }
-
+#if DEBUG
+    print_bufferedScan_state(s);
+#endif
     return &(s->buffered_pages[s->curr_buffered_page_index]->
         data[s->tup_id * s->nattrs]);
 }
@@ -280,6 +289,27 @@ void appendOutputTable(ExtendableOutputTable *out, Tuple tup, Conf *conf) {
     out->output_table->ntuples++;
 }
 
+#if DEBUG
+void print_tup(Tuple tup, UINT nattrs) {
+    for (UINT i = 0; i < nattrs; i++) {
+        printf("%d ", tup[i]);
+    }
+    printf("\n");
+}
+
+void print_table(const char *table_name) {
+    Table *table = get_table(table_name, global_environ.db);
+    Scan s;
+    startScan(table, &s);
+    for (
+        Tuple tup = get_next_tup(&s);
+        tup != NULL;
+        tup = get_next_tup(&s)) {
+        print_tup(tup, table->nattrs);
+    }
+}
+#endif
+
 _Table* sel(const UINT idx, const INT cond_val, const char* table_name){
     
     printf("sel() is invoked.\n");
@@ -307,6 +337,7 @@ _Table* sel(const UINT idx, const INT cond_val, const char* table_name){
         Tuple tup = get_next_tup(&s);
         tup != NULL;
         tup = get_next_tup(&s)) {
+        print_tup(tup, table->nattrs);
         if (tup[idx] == cond_val) {
             // append to _Table *
             appendOutputTable(&out, copy_tuple(tup, table->nattrs),
@@ -596,8 +627,8 @@ void init_fd_buffer(FdBuffer *fd_buffer, Conf *conf) {
 
 void free_fd_buffer(FdBuffer *fd_buffer) {
     for (UINT i = 0; i < fd_buffer->buffer_size; i++) {
-        if (fd_buffer->vfds[i].oid == 0) {
-            close(fd_buffer->vfds[i].fd);
+        if (fd_buffer->vfds[i].oid != 0) {
+            internal_close_file(fd_buffer->vfds[i].oid, fd_buffer->vfds[i].fd);
         }
     }
     free(fd_buffer->vfds);
@@ -693,6 +724,9 @@ INT read_page(UINT oid, UINT offset, FdBuffer *fd_buffer, Database *db,
 void init_buffer_pool(BufferPool *buffer_pool, Conf *conf) {
     buffer_pool->directory = calloc(conf->buf_slots, sizeof(BufferDesc));
     buffer_pool->pages = malloc(conf->buf_slots * conf->page_size);
+#if DEBUG
+    memset(buffer_pool->pages, 0, conf->buf_slots * conf->page_size);
+#endif
     buffer_pool->next_victim = 0;
 }
 
@@ -787,10 +821,25 @@ Page *request_page(BufferTag bufTag, Environ *environ) {
                 }
             }
         }
+    } else {
+#if DEBUG
+        printf("requested page oid: %u, page_index: %lu already exists in the buffer!\n", bufTag.oid, bufTag.page_index);
+#endif
     }
     buffer_pool->directory[buf_index].pin_count = 1;
     buffer_pool->directory[buf_index].usage_count += 1;
-    return &(buffer_pool->pages[buf_index]);
+#if DEBUG
+    printf("page oid: %u, page_index: %lu is allocated at buf_index: %u (pointer: %p)\n", bufTag.oid, bufTag.page_index, buf_index, &(buffer_pool->pages[buf_index]));
+    printf("buffer:\n");
+    for (UINT i = 0; i < buf_slots; i++) {
+        printf("\tpage_id: %lu\n\tdata: ", buffer_pool->pages[i].page_id);
+        for (UINT j = 0; j < (environ->conf->page_size - sizeof(UINT64)) / sizeof(INT); j++) {
+            printf("%d,", buffer_pool->pages[i].data[j]);
+        }
+        printf("\n");
+    }
+#endif
+    return &(buffer_pool->pages[buf_index ]);
 }
 
 void release_page(BufferTag bufTag, Environ *environ) {
