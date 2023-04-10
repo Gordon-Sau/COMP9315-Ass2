@@ -106,15 +106,15 @@ UINT64 table_get_npages(Table *table, UINT page_size) {
 
 // tuple iterator
 typedef struct BufferedScan {
-    UINT nattrs;
-    Page **buffered_pages;
-    UINT n_buffered_pages;
-    UINT curr_buffered_page_index;
-    UINT64 curr_page;
+    Page **buffered_pages; // the buffer
+    UINT n_buffered_pages; // number of buffered pages
+    UINT curr_buffered_page_index; // the index in the buffer
+    UINT64 curr_page; // the actual page index
     Tuple tup; // the next tuple
     UINT64 tup_id; // the index of the current tuple
     UINT64 npages; // number of pages in the table
     UINT64 ntuples; // number of tuples in the table
+    UINT nattrs; // number of attributes for each tuple in the table
 } BufferedScan;
 
 Tuple BufferedScan_get_tup_pointer(BufferedScan *s) {
@@ -180,8 +180,8 @@ Tuple BufferedScan_get_next_tup(BufferedScan *s) {
 
 typedef struct Scan {
     BufferedScan buffered_scan;
-    BufferTag buf_tag;
-    Page *page;
+    BufferTag buf_tag; // current buffer tag
+    Page *page; // current buffered page
 } Scan;
 
 // initialize a Scan structure
