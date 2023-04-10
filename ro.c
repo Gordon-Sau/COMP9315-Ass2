@@ -7,6 +7,8 @@
 #include <fcntl.h>
 #include <string.h>
 
+typedef INT8 bool;
+
 typedef struct Vfd {
     INT fd;
     UINT oid;  // assum if oid is 0, then this slot is free
@@ -671,11 +673,11 @@ void free_buffer_pool(BufferPool *buffer_pool) {
     free(buffer_pool);
 }
 
-INT8 eq_BufferTag(BufferTag bufTag1, BufferTag bufTag2) {
+bool eq_BufferTag(BufferTag bufTag1, BufferTag bufTag2) {
     return (bufTag1.oid == bufTag2.oid) && (bufTag1.page_index == bufTag2.page_index);
 }
 
-INT8 buffer_pool_find_index(BufferTag bufTag, BufferPool *buffer_pool,
+bool buffer_pool_find_index(BufferTag bufTag, BufferPool *buffer_pool,
         UINT buf_slots, UINT *found_index) {
     for (UINT i = 0; i < buf_slots; i++) {
         if (eq_BufferTag(buffer_pool->directory[i].buf_tag, bufTag)) {
@@ -686,9 +688,9 @@ INT8 buffer_pool_find_index(BufferTag bufTag, BufferPool *buffer_pool,
     return 0;
 }
 
-UINT next_victim(UINT victim, UINT max) {
+UINT next_victim(UINT victim, UINT buf_size) {
     UINT next = victim + 1;
-    if (next == max) {
+    if (next == buf_size) {
         next = 0;
     }
     return next;
