@@ -25,7 +25,7 @@ typedef struct FdBuffer {
 
 typedef struct BufferTag {
     UINT oid;
-    UINT64 page_id;
+    UINT64 page_index;
 } BufferTag;
 
 typedef struct Page {
@@ -33,21 +33,18 @@ typedef struct Page {
     INT data[];
 } Page;
 
-typedef struct BufferDesc
-{
-    BufferTag   page_id;     // ID of page contained in buffer
+typedef struct BufferDesc {
+    BufferTag   buf_tag;     // ID of page contained in buffer
     // UINT64      buf_id;  // buffer's index number (from 0)
     // INT8        dirty_bit;
     UINT        pin_count;
     UINT        usage_count;
-    UINT64      freeNext;  // link in freelist chain 
 } BufferDesc;
 
 typedef struct BufferPool {
     BufferDesc *directory;
     Page *pages;
     UINT next_victim;
-    UINT free_head;
 } BufferPool;
 
 
@@ -61,8 +58,8 @@ typedef struct Environ {
 void init_environ(Environ *environ, Database *db, Conf *conf);
 void free_environ(Environ *environ);
 Environ global_environ;
-Page *request_page(BufferTag pid, Environ *environ);
-void release_page(BufferTag pid, Environ *Environ);
+Page *request_page(BufferTag bufTag, Environ *environ);
+void release_page(BufferTag bufTag, Environ *Environ);
 
 void init(){
     // do some initialization here.
@@ -85,9 +82,9 @@ void release(){
 }
 
 
-void setBufferTag(BufferTag *buf_tag, UINT oid, UINT64 page_id) {
+void setBufferTag(BufferTag *buf_tag, UINT oid, UINT64 page_index) {
     buf_tag->oid = oid;
-    buf_tag->page_id = page_id;
+    buf_tag->page_index = page_index;
 }
 
 UINT64 max_tups_per_page(Conf *conf, UINT nattrs) {
@@ -200,13 +197,13 @@ Tuple get_next_tup(Scan *s, UINT nattrs) {
         } else {
             release_page(s->buf_tag, &global_environ);
             // request next page
-            s->buf_tag.page_id += 1;
-            if (s->buf_tag.page_id == s->buffered_scan.npages) {
+            s->buf_tag.page_index += 1;
+            if (s->buf_tag.page_index == s->buffered_scan.npages) {
                 return NULL;
             }
             s->page = request_page(s->buf_tag, &global_environ);
             BufferedScan_set_buffer(&(s->buffered_scan), &(s->page), 1,
-                s->buf_tag.page_id);
+                s->buf_tag.page_index);
             return BufferedScan_get_next_tup(&(s->buffered_scan), nattrs);
         }
     } else {
@@ -662,16 +659,8 @@ INT read_page(UINT oid, UINT offset, FdBuffer *fd_buffer, Database *db,
 
 /* buffer pool helper functions */
 
-void init_buffer_directory_free_list(BufferDesc *directory, UINT buf_slots) {
-    for (UINT i = 0; i < buf_slots; i++) {
-        directory[i].freeNext = i + 1;
-    }
-}
-
 void init_buffer_pool(BufferPool *buffer_pool, Conf *conf) {
     buffer_pool->directory = calloc(conf->buf_slots, sizeof(BufferDesc));
-    init_buffer_directory_free_list(buffer_pool->directory, conf->buf_slots);
-    buffer_pool->free_head = 0;
     buffer_pool->pages = malloc(conf->buf_slots * conf->page_size);
     buffer_pool->next_victim = 0;
 }
@@ -682,23 +671,19 @@ void free_buffer_pool(BufferPool *buffer_pool) {
     free(buffer_pool);
 }
 
-INT8 eq_BufferTag(BufferTag pid1, BufferTag pid2) {
-    return (pid1.oid == pid2.oid) && (pid1.page_id == pid2.page_id);
+INT8 eq_BufferTag(BufferTag bufTag1, BufferTag bufTag2) {
+    return (bufTag1.oid == bufTag2.oid) && (bufTag1.page_index == bufTag2.page_index);
 }
 
-INT8 buffer_pool_find_index(BufferTag pid, BufferPool *buffer_pool,
+INT8 buffer_pool_find_index(BufferTag bufTag, BufferPool *buffer_pool,
         UINT buf_slots, UINT *found_index) {
     for (UINT i = 0; i < buf_slots; i++) {
-        if (eq_BufferTag(buffer_pool->directory[i].page_id, pid)) {
+        if (eq_BufferTag(buffer_pool->directory[i].buf_tag, bufTag)) {
             *found_index = i;
             return 1;
         }
     }
     return 0;
-}
-
-INT8 buffer_pool_has_free(BufferPool *buffer_pool, UINT buf_slots) {
-    return buffer_pool->free_head == buf_slots;
 }
 
 UINT next_victim(UINT victim, UINT max) {
@@ -707,37 +692,6 @@ UINT next_victim(UINT victim, UINT max) {
         next = 0;
     }
     return next;
-}
-
-INT8 get_victim_buffer(BufferPool *buffer_pool, UINT buf_slots,
-        UINT *buf_index) {
-    INT8 has_not_in_use = 0;
-    for (UINT i = 0; i < buf_slots; i++) {
-        if (buffer_pool->directory[i].pin_count == 1) {
-            has_not_in_use = 1;
-            break;
-        }
-    }
-    if (!has_not_in_use) {
-        return 0;
-    }
-
-    UINT victim = buffer_pool->next_victim;
-    for (;1; victim = next_victim(victim, buf_slots)) {
-        if (buffer_pool->directory[victim].pin_count == 0 &&
-                buffer_pool->directory[victim].usage_count == 0) {
-            *buf_index = victim;
-            log_release_page(buffer_pool->directory[victim].page_id.
-                page_id);
-            buffer_pool->next_victim = next_victim(victim, buf_slots);
-            break;
-        } else {
-            if (buffer_pool->directory[victim].usage_count > 0) {
-                buffer_pool->directory[victim].usage_count--;
-            }
-        }
-    }
-    return 1;
 }
 
 void init_environ(Environ *environ, Database *db, Conf *conf) {
@@ -756,46 +710,42 @@ void free_environ(Environ *environ) {
     free_fd_buffer(environ->fd_buffer);
 }
 
-Page *request_page(BufferTag pid, Environ *environ) {
+Page *request_page(BufferTag bufTag, Environ *environ) {
     UINT buf_index;
     BufferPool *buffer_pool = environ->buffer_pool;
     UINT buf_slots = environ->conf->buf_slots;
-    INT8 found = buffer_pool_find_index(pid, buffer_pool, buf_slots, 
+    INT8 found = buffer_pool_find_index(bufTag, buffer_pool, buf_slots, 
         &buf_index);
     if (!found) {
-        if (buffer_pool_has_free(buffer_pool, buf_slots)) {
-            // replace page
-            INT8 success = get_victim_buffer(buffer_pool, buf_slots, 
-                &buf_index);
-            if (!success) return NULL;
-            buffer_pool->directory[buf_index].page_id = pid;
-            log_read_page(pid.page_id);
-            read_page(pid.oid, pid.page_id, environ->fd_buffer, environ->db,
-                environ->conf, &(environ->buffer_pool->pages[buf_index]) );
-        } else {
-            buf_index = buffer_pool->free_head;
-            // update free head
-            buffer_pool->free_head = 
-                buffer_pool->directory[buf_index].freeNext;
-            // reset meta data for this buffer
-            buffer_pool->directory[buf_index].page_id = pid;
-            buffer_pool->directory[buf_index].pin_count = 0;
-            buffer_pool->directory[buf_index].usage_count = 0;
-            buffer_pool->directory[buf_index].freeNext = buf_slots;
-            log_read_page(pid.page_id);
-            read_page(pid.oid, pid.page_id, environ->fd_buffer, environ->db,
+
+        INT victim = buffer_pool->next_victim;
+        for (;1; victim = next_victim(victim, buf_slots)) {
+            if (buffer_pool->directory[victim].pin_count == 0 &&
+                    buffer_pool->directory[victim].usage_count == 0) {
+                buf_index = victim;
+                log_release_page(buffer_pool->directory[victim].buf_tag.
+                    page_index);
+                read_page(bufTag.oid, bufTag.page_index, environ->fd_buffer, environ->db,
                 environ->conf, &(buffer_pool->pages[buf_index]) );
+                log_read_page(buffer_pool->pages[buf_index].page_id);
+                buffer_pool->next_victim = next_victim(victim, buf_slots);
+                break;
+            } else {
+                if (buffer_pool->directory[victim].usage_count > 0) {
+                    buffer_pool->directory[victim].usage_count--;
+                }
+            }
         }
     }
-    buffer_pool->directory[buf_index].pin_count += 1;
+    buffer_pool->directory[buf_index].pin_count = 1;
     buffer_pool->directory[buf_index].usage_count += 1;
     return &(buffer_pool->pages[buf_index]);
 }
 
-void release_page(BufferTag pid, Environ *environ) {
+void release_page(BufferTag bufTag, Environ *environ) {
     UINT buf_index;
     BufferPool *buffer_pool = environ->buffer_pool;
-    if (buffer_pool_find_index(pid, buffer_pool, environ->conf->buf_slots, &buf_index)) {
-        buffer_pool->directory[buf_index].pin_count -= 1;
+    if (buffer_pool_find_index(bufTag, buffer_pool, environ->conf->buf_slots, &buf_index)) {
+        buffer_pool->directory[buf_index].pin_count = 0;
     }
 }
