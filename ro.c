@@ -10,6 +10,7 @@
 #define DEBUG 0
 #define DEBUG_NESTED_LOOP 0
 #define DEBUG_fd_pool 0
+#define DEBUG_JOIN 0
 
 typedef INT8 bool;
 
@@ -66,7 +67,7 @@ void free_environ(Environ *environ);
 Environ global_environ;
 Page *request_page(BufferTag bufTag, Environ *environ);
 void release_page(BufferTag bufTag, Environ *Environ);
-#if DEBUG
+#if DEBUG || DEBUG_JOIN
 void print_tup(Tuple tup, UINT nattrs);
 #endif
 
@@ -216,10 +217,9 @@ typedef struct Scan {
 void startScan(Table *table, Scan *s) {
     setBufferTag(&(s->buf_tag), table->oid, 0);
     s->page = request_page(s->buf_tag, &global_environ);
-    if (s->page == NULL) {
-        printf("fail to request page!");
-        exit(1);
-    }
+    #if DEBUG
+    assert(s->page != NULL);
+    #endif
     startBufferedScan(table, &(s->page), s->buf_tag.page_index, 1,
         &(s->buffered_scan));
 }
@@ -299,7 +299,7 @@ void appendOutputTable(ExtendableOutputTable *out, Tuple tup, Conf *conf) {
     out->output_table->ntuples++;
 }
 
-#if DEBUG
+#if DEBUG || DEBUG_JOIN
 void print_tup(Tuple tup, UINT nattrs) {
     if (tup != NULL) {
         for (UINT i = 0; i < nattrs; i++) {
@@ -398,38 +398,40 @@ void nestedLoopJoin(Table *R, const UINT idxR, Table *S, const UINT idxS,
             BufferTag bufTagR;
             setBufferTag(&bufTagR, R->oid, nreadPagesR);
             R_pages[i] = request_page(bufTagR, &global_environ);
+            #if DEBUG || DEBUG_JOIN || DEBUG_NESTED_LOOP
             if (R_pages[i] == NULL) {
                 printf("failed to request page in nested loop join! Accessing oid: %u, page_index: %lu",
                     bufTagR.oid, bufTagR.page_index);
             }
+            #endif
             nreadPagesR++;
             if (nreadPagesR == npagesR) break;
         }
 
-        BufferedScan scanR;
-        startBufferedScan(R, R_pages, nstartPagesR, nreadPagesR - nstartPagesR,
-            &scanR);
 #if DEBUG
         printf("scanR:\n");
         print_bufferedScan_state(&scanR);
 #endif
         Scan scanS;
+        startScan(S, &scanS);
 
-        for (Tuple r_tup = BufferedScan_get_next_tup(&scanR);
-            r_tup != NULL;
-            r_tup = BufferedScan_get_next_tup(&scanR)) {
+        for (Tuple s_tup = get_next_tup(&scanS);
+            s_tup != NULL;
+            s_tup = get_next_tup(&scanS)) {
+        
+            BufferedScan scanR;
+            startBufferedScan(R, R_pages, nstartPagesR, nreadPagesR - nstartPagesR,
+                &scanR);
 
-            startScan(S, &scanS);
-            for (Tuple s_tup = get_next_tup(&scanS);
-                s_tup != NULL;
-                s_tup = get_next_tup(&scanS)) {
+            for (Tuple r_tup = BufferedScan_get_next_tup(&scanR);
+                r_tup != NULL;
+                r_tup = BufferedScan_get_next_tup(&scanR)) {
 
-#if DEBUG
+                #if DEBUG || DEBUG_JOIN
                 printf("checking tuples:\n");
                 print_tup(r_tup, R->nattrs);
                 print_tup(s_tup, S->nattrs);
-#endif
-
+                #endif
 
                 if (r_tup[idxR] == s_tup[idxS]) {
                     Tuple output_tup;
@@ -443,10 +445,6 @@ void nestedLoopJoin(Table *R, const UINT idxR, Table *S, const UINT idxS,
                     appendOutputTable(output, output_tup, conf);
                 }
             }
-#if DEBUG
-            printf("r_tup: ");
-            print_tup(r_tup, R->nattrs);
-#endif
         }
 
         // release N-1 pages of R
@@ -614,7 +612,7 @@ void sortMergeJoin(Table *R, UINT idxR, Table *S, UINT idxS,
     SortedScan sortedR;
     sort_table(R, idxR, &sortedR);
 #if DEBUG
-    printf("sortedScan: \n");
+    printf("sortedScanR: \n");
     print_sorted_table(&sortedR);
 #endif
     SortedScan sortedS;
@@ -662,18 +660,20 @@ _Table* join(const UINT idx1, const char* table1_name, const UINT idx2, const ch
 
     if (are_pages_in_mem) {
         // nested loop join
-#if DEBUG
+#if DEBUG_JOIN || DEBUG
         printf("nested loop join invoke()\n");
 #endif
         // outer should be the smaller table
-        if (table1->ntuples > table2->ntuples) {
+        if (table_get_npages(table1, page_size) > 
+            table_get_npages(table2, page_size)) {
+
             nestedLoopJoin(table2, idx2, table1, idx1, &out, 1);
         } else {
             nestedLoopJoin(table1, idx1, table2, idx2, &out, 0);
         }
     } else {
         // sort merge join
-#if DEBUG
+#if DEBUG_JOIN || DEBUG
         printf("sort merge join invoke()\n");
 #endif
         sortMergeJoin(table1, idx1, table2, idx2, &out);
@@ -857,6 +857,9 @@ INT oid_access(FdBuffer *fd_buffer, UINT oid, Database * db) {
 INT read_page(UINT oid, UINT offset, FdBuffer *fd_buffer, Database *db,
         Conf *conf, Page *ret_buffer) {
     INT vfd = oid_access(fd_buffer, oid, db);
+#if DEBUG || DEBUG_JOIN
+    printf("read page oid: %u, pid: %u\n", oid, offset);
+#endif
     return internal_read_page(fd_buffer->vfds[vfd].fd, offset, conf->page_size, ret_buffer);
 }
 
@@ -933,6 +936,7 @@ Page *request_page(BufferTag bufTag, Environ *environ) {
     UINT page_size = environ->conf->page_size;
     if (!found) {
         // for debugging
+        #if DEBUG
         {
             bool has_free = 0;
             for (int i = 0; i < buf_slots; i++) {
@@ -947,6 +951,7 @@ Page *request_page(BufferTag bufTag, Environ *environ) {
                 return NULL;
             }
         }
+        #endif
 
         INT victim = buffer_pool->next_victim;
         for (;1; victim = next_victim(victim, buf_slots)) {
@@ -955,6 +960,12 @@ Page *request_page(BufferTag bufTag, Environ *environ) {
                 buf_index = victim;
                 Page *page_ptr = buffer_get_page_ptr(buffer_pool, buf_index, page_size);
                 if (buffer_pool->directory[buf_index].buf_tag.oid != 0) {
+                    #if DEBUG_JOIN
+                    printf("release page oid: %u, pid: %lu at %u\n",
+                        buffer_pool->directory[buf_index].buf_tag.oid,
+                        buffer_pool->directory[buf_index].buf_tag.page_index,
+                        buf_index);
+                    #endif
                     log_release_page(page_ptr->page_id);
                 } 
                 read_page(bufTag.oid, bufTag.page_index, environ->fd_buffer,

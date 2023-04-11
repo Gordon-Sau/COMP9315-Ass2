@@ -1,282 +1,623 @@
-Page size: 64, buffer slots: 2, limit of opened files: 2, buffer replacement policy: CLS
-Input data path:./test1/data_1.txt
+Page size: 40, buffer slots: 3, limit of opened files: 3, buffer replacement policy: CLS
+Input data path:./test/test5/data_5.txt
 init() is invoked.
 sel() is invoked.
-Open file 28
+Open file 52
+read page oid: 52, pid: 0
 Read page 0
-page oid: 28, page_index: 0 is allocated at buf_index: 0 (pointer: 0x560695233510)
-buffer:
-	page_id: 0
-	data: 1314,520,8888,2023,1,5,23,54,1,2,3,4,1024,0,
-	page_id: 0
-	data: 0,0,0,0,0,0,0,0,0,0,0,0,0,0,
-BuffererdScan: curr_page: 0, curr_buffered_page_index: 0, tup_id: 0, nattrs: 4, buffered_pages: 0x7ffc5d27b528, curr_buffered_page: 0x560695233510, n_buffered_pages: 1
-BufferedScan_get_next_tup:1314 520 8888 2023 
-1314 520 8888 2023 
-BuffererdScan: curr_page: 0, curr_buffered_page_index: 0, tup_id: 1, nattrs: 4, buffered_pages: 0x7ffc5d27b528, curr_buffered_page: 0x560695233510, n_buffered_pages: 1
-BufferedScan_get_next_tup:1 5 23 54 
-1 5 23 54 
-BuffererdScan: curr_page: 0, curr_buffered_page_index: 0, tup_id: 2, nattrs: 4, buffered_pages: 0x7ffc5d27b528, curr_buffered_page: 0x560695233510, n_buffered_pages: 1
-BufferedScan_get_next_tup:1 2 3 4 
-1 2 3 4 
-BufferedScan_get_next_tup:NULL
+read page oid: 52, pid: 1
 Read page 1
-page oid: 28, page_index: 1 is allocated at buf_index: 1 (pointer: 0x560695233511)
-buffer:
-	page_id: 0
-	data: 1314,520,8888,2023,1,5,23,54,1,2,3,4,1024,0,
-	page_id: 1
-	data: 5,78,8,2,0,1,3,8,1,8064,40,2,0,-1792850592,
-BuffererdScan: curr_page: 1, curr_buffered_page_index: 0, tup_id: 0, nattrs: 4, buffered_pages: 0x7ffc5d27b528, curr_buffered_page: 0x560695233550, n_buffered_pages: 1
-BufferedScan_get_next_tup:5 78 8 2 
-5 78 8 2 
-BufferedScan_get_next_tup:NULL
 sel() is invoked.
-requested page oid: 28, page_index: 0 already exists in the buffer!
-page oid: 28, page_index: 0 is allocated at buf_index: 0 (pointer: 0x560695233510)
-buffer:
-	page_id: 0
-	data: 1314,520,8888,2023,1,5,23,54,1,2,3,4,1024,0,
-	page_id: 1
-	data: 5,78,8,2,0,1,3,8,1,8064,40,2,0,-1792850592,
-BuffererdScan: curr_page: 0, curr_buffered_page_index: 0, tup_id: 0, nattrs: 4, buffered_pages: 0x7ffc5d27b528, curr_buffered_page: 0x560695233510, n_buffered_pages: 1
-BufferedScan_get_next_tup:1314 520 8888 2023 
-1314 520 8888 2023 
-BuffererdScan: curr_page: 0, curr_buffered_page_index: 0, tup_id: 1, nattrs: 4, buffered_pages: 0x7ffc5d27b528, curr_buffered_page: 0x560695233510, n_buffered_pages: 1
-BufferedScan_get_next_tup:1 5 23 54 
-1 5 23 54 
-BuffererdScan: curr_page: 0, curr_buffered_page_index: 0, tup_id: 2, nattrs: 4, buffered_pages: 0x7ffc5d27b528, curr_buffered_page: 0x560695233510, n_buffered_pages: 1
-BufferedScan_get_next_tup:1 2 3 4 
-1 2 3 4 
-BufferedScan_get_next_tup:NULL
-requested page oid: 28, page_index: 1 already exists in the buffer!
-page oid: 28, page_index: 1 is allocated at buf_index: 1 (pointer: 0x560695233511)
-buffer:
-	page_id: 0
-	data: 1314,520,8888,2023,1,5,23,54,1,2,3,4,1024,0,
-	page_id: 1
-	data: 5,78,8,2,0,1,3,8,1,8064,40,2,0,-1792850592,
-BuffererdScan: curr_page: 1, curr_buffered_page_index: 0, tup_id: 0, nattrs: 4, buffered_pages: 0x7ffc5d27b528, curr_buffered_page: 0x560695233550, n_buffered_pages: 1
-BufferedScan_get_next_tup:5 78 8 2 
-5 78 8 2 
-BufferedScan_get_next_tup:NULL
+sel() is invoked.
+Open file 75
+read page oid: 75, pid: 0
+Read page 0
+release page oid: 75, pid: 0 at 2
+Release page 0
+read page oid: 75, pid: 1
+Read page 1
+sel() is invoked.
+release page oid: 52, pid: 0 at 0
+Release page 0
+Open file 84
+read page oid: 84, pid: 0
+Read page 0
+release page oid: 52, pid: 1 at 1
+Release page 1
+read page oid: 84, pid: 1
+Read page 1
+release page oid: 75, pid: 1 at 2
+Release page 1
+read page oid: 84, pid: 2
+Read page 2
+release page oid: 84, pid: 0 at 0
+Release page 0
+read page oid: 84, pid: 3
+Read page 3
 join() is invoked.
 nested loop join invoke()
-npagesR = 1
-Release page 0
-Open file 30
-Read page 0
-page oid: 30, page_index: 0 is allocated at buf_index: 0 (pointer: 0x560695233510)
-buffer:
-	page_id: 0
-	data: 13,2023,2,5,3,2,0,1,7,0,3,32,40,1,
-	page_id: 1
-	data: 5,78,8,2,0,1,3,8,1,8064,40,2,0,-1792850592,
-scanR:
-BuffererdScan: curr_page: 0, curr_buffered_page_index: 0, tup_id: 0, nattrs: 2, buffered_pages: 0x560695233610, curr_buffered_page: 0x560695233510, n_buffered_pages: 1
-BuffererdScan: curr_page: 0, curr_buffered_page_index: 0, tup_id: 0, nattrs: 2, buffered_pages: 0x560695233610, curr_buffered_page: 0x560695233510, n_buffered_pages: 1
-BufferedScan_get_next_tup:13 2023 
+release page oid: 84, pid: 1 at 1
 Release page 1
+read page oid: 84, pid: 0
 Read page 0
-page oid: 28, page_index: 0 is allocated at buf_index: 1 (pointer: 0x560695233511)
-buffer:
-	page_id: 0
-	data: 13,2023,2,5,3,2,0,1,7,0,3,32,40,1,
-	page_id: 0
-	data: 1314,520,8888,2023,1,5,23,54,1,2,3,4,1024,0,
-BuffererdScan: curr_page: 0, curr_buffered_page_index: 0, tup_id: 0, nattrs: 4, buffered_pages: 0x7ffc5d27b498, curr_buffered_page: 0x560695233550, n_buffered_pages: 1
-BufferedScan_get_next_tup:1314 520 8888 2023 
-checking tuples:
-13 2023 
-1314 520 8888 2023 
-BuffererdScan: curr_page: 0, curr_buffered_page_index: 0, tup_id: 1, nattrs: 4, buffered_pages: 0x7ffc5d27b498, curr_buffered_page: 0x560695233550, n_buffered_pages: 1
-BufferedScan_get_next_tup:1 5 23 54 
-checking tuples:
-13 2023 
-1 5 23 54 
-BuffererdScan: curr_page: 0, curr_buffered_page_index: 0, tup_id: 2, nattrs: 4, buffered_pages: 0x7ffc5d27b498, curr_buffered_page: 0x560695233550, n_buffered_pages: 1
-BufferedScan_get_next_tup:1 2 3 4 
-checking tuples:
-13 2023 
-1 2 3 4 
-BufferedScan_get_next_tup:NULL
-Release page 0
+release page oid: 84, pid: 2 at 2
+Release page 2
+read page oid: 84, pid: 1
 Read page 1
-page oid: 28, page_index: 1 is allocated at buf_index: 1 (pointer: 0x560695233511)
-buffer:
-	page_id: 0
-	data: 13,2023,2,5,3,2,0,1,7,0,3,32,40,1,
-	page_id: 1
-	data: 5,78,8,2,0,1,3,8,1,8064,40,2,0,-1792850592,
-BuffererdScan: curr_page: 1, curr_buffered_page_index: 0, tup_id: 0, nattrs: 4, buffered_pages: 0x7ffc5d27b498, curr_buffered_page: 0x560695233550, n_buffered_pages: 1
-BufferedScan_get_next_tup:5 78 8 2 
+release page oid: 84, pid: 3 at 0
+Release page 3
+read page oid: 52, pid: 0
+Read page 0
 checking tuples:
-13 2023 
-5 78 8 2 
-BufferedScan_get_next_tup:NULL
-r_tup: 13 2023 
-BuffererdScan: curr_page: 0, curr_buffered_page_index: 0, tup_id: 1, nattrs: 2, buffered_pages: 0x560695233610, curr_buffered_page: 0x560695233510, n_buffered_pages: 1
-BufferedScan_get_next_tup:2 5 
+743 652 54 73 
+1 2 
+checking tuples:
+23423 745 12 654 
+1 2 
+checking tuples:
+32 34 2634 34 
+1 2 
+checking tuples:
+24 357 342 23 
+1 2 
+checking tuples:
+743 652 54 73 
+5 6 
+checking tuples:
+23423 745 12 654 
+5 6 
+checking tuples:
+32 34 2634 34 
+5 6 
+checking tuples:
+24 357 342 23 
+5 6 
+checking tuples:
+743 652 54 73 
+100 1000 
+checking tuples:
+23423 745 12 654 
+100 1000 
+checking tuples:
+32 34 2634 34 
+100 1000 
+checking tuples:
+24 357 342 23 
+100 1000 
+checking tuples:
+743 652 54 73 
+23 53 
+checking tuples:
+23423 745 12 654 
+23 53 
+checking tuples:
+32 34 2634 34 
+23 53 
+checking tuples:
+24 357 342 23 
+23 53 
+release page oid: 52, pid: 0 at 0
+Release page 0
+read page oid: 52, pid: 1
+Read page 1
+checking tuples:
+743 652 54 73 
+150 272 
+checking tuples:
+23423 745 12 654 
+150 272 
+checking tuples:
+32 34 2634 34 
+150 272 
+checking tuples:
+24 357 342 23 
+150 272 
+checking tuples:
+743 652 54 73 
+5 1003 
+checking tuples:
+23423 745 12 654 
+5 1003 
+checking tuples:
+32 34 2634 34 
+5 1003 
+checking tuples:
+24 357 342 23 
+5 1003 
+checking tuples:
+743 652 54 73 
+5 2 
+checking tuples:
+23423 745 12 654 
+5 2 
+checking tuples:
+32 34 2634 34 
+5 2 
+checking tuples:
+24 357 342 23 
+5 2 
+checking tuples:
+743 652 54 73 
+100 3 
+checking tuples:
+23423 745 12 654 
+100 3 
+checking tuples:
+32 34 2634 34 
+100 3 
+checking tuples:
+24 357 342 23 
+100 3 
+release page oid: 84, pid: 0 at 1
+Release page 0
+read page oid: 84, pid: 2
+Read page 2
+release page oid: 84, pid: 1 at 2
 Release page 1
-Read page 0
-page oid: 28, page_index: 0 is allocated at buf_index: 1 (pointer: 0x560695233511)
-buffer:
-	page_id: 0
-	data: 13,2023,2,5,3,2,0,1,7,0,3,32,40,1,
-	page_id: 0
-	data: 1314,520,8888,2023,1,5,23,54,1,2,3,4,1024,0,
-BuffererdScan: curr_page: 0, curr_buffered_page_index: 0, tup_id: 0, nattrs: 4, buffered_pages: 0x7ffc5d27b498, curr_buffered_page: 0x560695233550, n_buffered_pages: 1
-BufferedScan_get_next_tup:1314 520 8888 2023 
-checking tuples:
-2 5 
-1314 520 8888 2023 
-BuffererdScan: curr_page: 0, curr_buffered_page_index: 0, tup_id: 1, nattrs: 4, buffered_pages: 0x7ffc5d27b498, curr_buffered_page: 0x560695233550, n_buffered_pages: 1
-BufferedScan_get_next_tup:1 5 23 54 
-checking tuples:
-2 5 
-1 5 23 54 
-BuffererdScan: curr_page: 0, curr_buffered_page_index: 0, tup_id: 2, nattrs: 4, buffered_pages: 0x7ffc5d27b498, curr_buffered_page: 0x560695233550, n_buffered_pages: 1
-BufferedScan_get_next_tup:1 2 3 4 
-checking tuples:
-2 5 
-1 2 3 4 
-BufferedScan_get_next_tup:NULL
-Release page 0
-Read page 1
-page oid: 28, page_index: 1 is allocated at buf_index: 1 (pointer: 0x560695233511)
-buffer:
-	page_id: 0
-	data: 13,2023,2,5,3,2,0,1,7,0,3,32,40,1,
-	page_id: 1
-	data: 5,78,8,2,0,1,3,8,1,8064,40,2,0,-1792850592,
-BuffererdScan: curr_page: 1, curr_buffered_page_index: 0, tup_id: 0, nattrs: 4, buffered_pages: 0x7ffc5d27b498, curr_buffered_page: 0x560695233550, n_buffered_pages: 1
-BufferedScan_get_next_tup:5 78 8 2 
-checking tuples:
-2 5 
-5 78 8 2 
-BufferedScan_get_next_tup:NULL
-r_tup: 2 5 
-BuffererdScan: curr_page: 0, curr_buffered_page_index: 0, tup_id: 2, nattrs: 2, buffered_pages: 0x560695233610, curr_buffered_page: 0x560695233510, n_buffered_pages: 1
-BufferedScan_get_next_tup:3 2 
+read page oid: 84, pid: 3
+Read page 3
+release page oid: 52, pid: 1 at 0
 Release page 1
+read page oid: 52, pid: 0
 Read page 0
-page oid: 28, page_index: 0 is allocated at buf_index: 1 (pointer: 0x560695233511)
-buffer:
-	page_id: 0
-	data: 13,2023,2,5,3,2,0,1,7,0,3,32,40,1,
-	page_id: 0
-	data: 1314,520,8888,2023,1,5,23,54,1,2,3,4,1024,0,
-BuffererdScan: curr_page: 0, curr_buffered_page_index: 0, tup_id: 0, nattrs: 4, buffered_pages: 0x7ffc5d27b498, curr_buffered_page: 0x560695233550, n_buffered_pages: 1
-BufferedScan_get_next_tup:1314 520 8888 2023 
 checking tuples:
-3 2 
-1314 520 8888 2023 
-BuffererdScan: curr_page: 0, curr_buffered_page_index: 0, tup_id: 1, nattrs: 4, buffered_pages: 0x7ffc5d27b498, curr_buffered_page: 0x560695233550, n_buffered_pages: 1
-BufferedScan_get_next_tup:1 5 23 54 
+123 53 12 21 
+1 2 
 checking tuples:
-3 2 
-1 5 23 54 
-BuffererdScan: curr_page: 0, curr_buffered_page_index: 0, tup_id: 2, nattrs: 4, buffered_pages: 0x7ffc5d27b498, curr_buffered_page: 0x560695233550, n_buffered_pages: 1
-BufferedScan_get_next_tup:1 2 3 4 
+32 5 2 2 
+1 2 
 checking tuples:
-3 2 
-1 2 3 4 
-BufferedScan_get_next_tup:NULL
+234 7 12 4 
+1 2 
+checking tuples:
+123 53 12 21 
+5 6 
+checking tuples:
+32 5 2 2 
+5 6 
+checking tuples:
+234 7 12 4 
+5 6 
+checking tuples:
+123 53 12 21 
+100 1000 
+checking tuples:
+32 5 2 2 
+100 1000 
+checking tuples:
+234 7 12 4 
+100 1000 
+checking tuples:
+123 53 12 21 
+23 53 
+checking tuples:
+32 5 2 2 
+23 53 
+checking tuples:
+234 7 12 4 
+23 53 
+release page oid: 52, pid: 0 at 0
 Release page 0
+read page oid: 52, pid: 1
 Read page 1
-page oid: 28, page_index: 1 is allocated at buf_index: 1 (pointer: 0x560695233511)
-buffer:
-	page_id: 0
-	data: 13,2023,2,5,3,2,0,1,7,0,3,32,40,1,
-	page_id: 1
-	data: 5,78,8,2,0,1,3,8,1,8064,40,2,0,-1792850592,
-BuffererdScan: curr_page: 1, curr_buffered_page_index: 0, tup_id: 0, nattrs: 4, buffered_pages: 0x7ffc5d27b498, curr_buffered_page: 0x560695233550, n_buffered_pages: 1
-BufferedScan_get_next_tup:5 78 8 2 
 checking tuples:
-3 2 
-5 78 8 2 
-BufferedScan_get_next_tup:NULL
-r_tup: 3 2 
-BufferedScan_get_next_tup:NULL
+123 53 12 21 
+150 272 
+checking tuples:
+32 5 2 2 
+150 272 
+checking tuples:
+234 7 12 4 
+150 272 
+checking tuples:
+123 53 12 21 
+5 1003 
+checking tuples:
+32 5 2 2 
+5 1003 
+checking tuples:
+234 7 12 4 
+5 1003 
+checking tuples:
+123 53 12 21 
+5 2 
+checking tuples:
+32 5 2 2 
+5 2 
+checking tuples:
+234 7 12 4 
+5 2 
+checking tuples:
+123 53 12 21 
+100 3 
+checking tuples:
+32 5 2 2 
+100 3 
+checking tuples:
+234 7 12 4 
+100 3 
 join() is invoked.
 nested loop join invoke()
-npagesR = 1
-requested page oid: 30, page_index: 0 already exists in the buffer!
-page oid: 30, page_index: 0 is allocated at buf_index: 0 (pointer: 0x560695233510)
-buffer:
-	page_id: 0
-	data: 13,2023,2,5,3,2,0,1,7,0,3,32,40,1,
-	page_id: 1
-	data: 5,78,8,2,0,1,3,8,1,8064,40,2,0,-1792850592,
-scanR:
-BuffererdScan: curr_page: 0, curr_buffered_page_index: 0, tup_id: 0, nattrs: 2, buffered_pages: 0x5606952336d0, curr_buffered_page: 0x560695233510, n_buffered_pages: 1
-BuffererdScan: curr_page: 0, curr_buffered_page_index: 0, tup_id: 0, nattrs: 2, buffered_pages: 0x5606952336d0, curr_buffered_page: 0x560695233510, n_buffered_pages: 1
-BufferedScan_get_next_tup:13 2023 
-Release page 1
+release page oid: 84, pid: 2 at 1
+Release page 2
+read page oid: 84, pid: 0
 Read page 0
-page oid: 28, page_index: 0 is allocated at buf_index: 1 (pointer: 0x560695233511)
-buffer:
-	page_id: 0
-	data: 13,2023,2,5,3,2,0,1,7,0,3,32,40,1,
-	page_id: 0
-	data: 1314,520,8888,2023,1,5,23,54,1,2,3,4,1024,0,
-BuffererdScan: curr_page: 0, curr_buffered_page_index: 0, tup_id: 0, nattrs: 4, buffered_pages: 0x7ffc5d27b498, curr_buffered_page: 0x560695233550, n_buffered_pages: 1
-BufferedScan_get_next_tup:1314 520 8888 2023 
-checking tuples:
-13 2023 
-1314 520 8888 2023 
-BuffererdScan: curr_page: 0, curr_buffered_page_index: 0, tup_id: 1, nattrs: 4, buffered_pages: 0x7ffc5d27b498, curr_buffered_page: 0x560695233550, n_buffered_pages: 1
-BufferedScan_get_next_tup:1 5 23 54 
-checking tuples:
-13 2023 
-1 5 23 54 
-BuffererdScan: curr_page: 0, curr_buffered_page_index: 0, tup_id: 2, nattrs: 4, buffered_pages: 0x7ffc5d27b498, curr_buffered_page: 0x560695233550, n_buffered_pages: 1
-BufferedScan_get_next_tup:1 2 3 4 
-checking tuples:
-13 2023 
-1 2 3 4 
-BufferedScan_get_next_tup:NULL
-Release page 0
+release page oid: 84, pid: 3 at 2
+Release page 3
+read page oid: 84, pid: 1
 Read page 1
-page oid: 28, page_index: 1 is allocated at buf_index: 1 (pointer: 0x560695233511)
-buffer:
-	page_id: 0
-	data: 13,2023,2,5,3,2,0,1,7,0,3,32,40,1,
-	page_id: 1
-	data: 5,78,8,2,0,1,3,8,1,8064,40,2,0,-1792850592,
-BuffererdScan: curr_page: 1, curr_buffered_page_index: 0, tup_id: 0, nattrs: 4, buffered_pages: 0x7ffc5d27b498, curr_buffered_page: 0x560695233550, n_buffered_pages: 1
-BufferedScan_get_next_tup:5 78 8 2 
-checking tuples:
-13 2023 
-5 78 8 2 
-BufferedScan_get_next_tup:NULL
-r_tup: 13 2023 
-BuffererdScan: curr_page: 0, curr_buffered_page_index: 0, tup_id: 1, nattrs: 2, buffered_pages: 0x5606952336d0, curr_buffered_page: 0x560695233510, n_buffered_pages: 1
-BufferedScan_get_next_tup:2 5 
+release page oid: 52, pid: 1 at 0
 Release page 1
+Close file 75
+Open file 53
+read page oid: 53, pid: 0
 Read page 0
-page oid: 28, page_index: 0 is allocated at buf_index: 1 (pointer: 0x560695233511)
-buffer:
-	page_id: 0
-	data: 13,2023,2,5,3,2,0,1,7,0,3,32,40,1,
-	page_id: 0
-	data: 1314,520,8888,2023,1,5,23,54,1,2,3,4,1024,0,
-BuffererdScan: curr_page: 0, curr_buffered_page_index: 0, tup_id: 0, nattrs: 4, buffered_pages: 0x7ffc5d27b498, curr_buffered_page: 0x560695233550, n_buffered_pages: 1
-BufferedScan_get_next_tup:1314 520 8888 2023 
 checking tuples:
-2 5 
-1314 520 8888 2023 
-BuffererdScan: curr_page: 0, curr_buffered_page_index: 0, tup_id: 1, nattrs: 4, buffered_pages: 0x7ffc5d27b498, curr_buffered_page: 0x560695233550, n_buffered_pages: 1
-BufferedScan_get_next_tup:1 5 23 54 
+743 652 54 73 
+6 2 2 
 checking tuples:
-2 5 
-1 5 23 54 
-BuffererdScan: curr_page: 0, curr_buffered_page_index: 0, tup_id: 2, nattrs: 4, buffered_pages: 0x7ffc5d27b498, curr_buffered_page: 0x560695233550, n_buffered_pages: 1
-BufferedScan_get_next_tup:1 2 3 4 
+23423 745 12 654 
+6 2 2 
 checking tuples:
-2 5 
-1 2 3 4 
-BufferedScan_get_next_tup:NULL
+32 34 2634 34 
+6 2 2 
+checking tuples:
+24 357 342 23 
+6 2 2 
+checking tuples:
+743 652 54 73 
+62 734 32 
+checking tuples:
+23423 745 12 654 
+62 734 32 
+checking tuples:
+32 34 2634 34 
+62 734 32 
+checking tuples:
+24 357 342 23 
+62 734 32 
+release page oid: 53, pid: 0 at 0
 Release page 0
+read page oid: 53, pid: 1
 Read page 1
-page oid: 28, page_index: 1 is allocated at buf_index: 1 (pointer: 0x560695233511)
+checking tuples:
+743 652 54 73 
+100 534 23 
+checking tuples:
+23423 745 12 654 
+100 534 23 
+checking tuples:
+32 34 2634 34 
+100 534 23 
+checking tuples:
+24 357 342 23 
+100 534 23 
+checking tuples:
+743 652 54 73 
+326 32 1 
+checking tuples:
+23423 745 12 654 
+326 32 1 
+checking tuples:
+32 34 2634 34 
+326 32 1 
+checking tuples:
+24 357 342 23 
+326 32 1 
+release page oid: 53, pid: 1 at 0
+Release page 1
+read page oid: 53, pid: 2
+Read page 2
+checking tuples:
+743 652 54 73 
+45 1 64 
+checking tuples:
+23423 745 12 654 
+45 1 64 
+checking tuples:
+32 34 2634 34 
+45 1 64 
+checking tuples:
+24 357 342 23 
+45 1 64 
+checking tuples:
+743 652 54 73 
+343 25 2 
+checking tuples:
+23423 745 12 654 
+343 25 2 
+checking tuples:
+32 34 2634 34 
+343 25 2 
+checking tuples:
+24 357 342 23 
+343 25 2 
+release page oid: 53, pid: 2 at 0
+Release page 2
+read page oid: 53, pid: 3
+Read page 3
+checking tuples:
+743 652 54 73 
+231 65 2 
+checking tuples:
+23423 745 12 654 
+231 65 2 
+checking tuples:
+32 34 2634 34 
+231 65 2 
+checking tuples:
+24 357 342 23 
+231 65 2 
+checking tuples:
+743 652 54 73 
+235 65 6 
+checking tuples:
+23423 745 12 654 
+235 65 6 
+checking tuples:
+32 34 2634 34 
+235 65 6 
+checking tuples:
+24 357 342 23 
+235 65 6 
+release page oid: 53, pid: 3 at 0
+Release page 3
+read page oid: 53, pid: 4
+Read page 4
+checking tuples:
+743 652 54 73 
+1 12 61 
+checking tuples:
+23423 745 12 654 
+1 12 61 
+checking tuples:
+32 34 2634 34 
+1 12 61 
+checking tuples:
+24 357 342 23 
+1 12 61 
+checking tuples:
+743 652 54 73 
+362 83 1 
+checking tuples:
+23423 745 12 654 
+362 83 1 
+checking tuples:
+32 34 2634 34 
+362 83 1 
+checking tuples:
+24 357 342 23 
+362 83 1 
+release page oid: 84, pid: 0 at 1
+Release page 0
+read page oid: 84, pid: 2
+Read page 2
+release page oid: 84, pid: 1 at 2
+Release page 1
+read page oid: 84, pid: 3
+Read page 3
+release page oid: 53, pid: 4 at 0
+Release page 4
+read page oid: 53, pid: 0
+Read page 0
+checking tuples:
+123 53 12 21 
+6 2 2 
+checking tuples:
+32 5 2 2 
+6 2 2 
+checking tuples:
+234 7 12 4 
+6 2 2 
+checking tuples:
+123 53 12 21 
+62 734 32 
+checking tuples:
+32 5 2 2 
+62 734 32 
+checking tuples:
+234 7 12 4 
+62 734 32 
+release page oid: 53, pid: 0 at 0
+Release page 0
+read page oid: 53, pid: 1
+Read page 1
+checking tuples:
+123 53 12 21 
+100 534 23 
+checking tuples:
+32 5 2 2 
+100 534 23 
+checking tuples:
+234 7 12 4 
+100 534 23 
+checking tuples:
+123 53 12 21 
+326 32 1 
+checking tuples:
+32 5 2 2 
+326 32 1 
+checking tuples:
+234 7 12 4 
+326 32 1 
+release page oid: 53, pid: 1 at 0
+Release page 1
+read page oid: 53, pid: 2
+Read page 2
+checking tuples:
+123 53 12 21 
+45 1 64 
+checking tuples:
+32 5 2 2 
+45 1 64 
+checking tuples:
+234 7 12 4 
+45 1 64 
+checking tuples:
+123 53 12 21 
+343 25 2 
+checking tuples:
+32 5 2 2 
+343 25 2 
+checking tuples:
+234 7 12 4 
+343 25 2 
+release page oid: 53, pid: 2 at 0
+Release page 2
+read page oid: 53, pid: 3
+Read page 3
+checking tuples:
+123 53 12 21 
+231 65 2 
+checking tuples:
+32 5 2 2 
+231 65 2 
+checking tuples:
+234 7 12 4 
+231 65 2 
+checking tuples:
+123 53 12 21 
+235 65 6 
+checking tuples:
+32 5 2 2 
+235 65 6 
+checking tuples:
+234 7 12 4 
+235 65 6 
+release page oid: 53, pid: 3 at 0
+Release page 3
+read page oid: 53, pid: 4
+Read page 4
+checking tuples:
+123 53 12 21 
+1 12 61 
+checking tuples:
+32 5 2 2 
+1 12 61 
+checking tuples:
+234 7 12 4 
+1 12 61 
+checking tuples:
+123 53 12 21 
+362 83 1 
+checking tuples:
+32 5 2 2 
+362 83 1 
+checking tuples:
+234 7 12 4 
+362 83 1 
+sel() is invoked.
+release page oid: 84, pid: 2 at 1
+Release page 2
+Close file 52
+Open file 75
+read page oid: 75, pid: 0
+Read page 0
+release page oid: 84, pid: 3 at 2
+Release page 3
+read page oid: 75, pid: 1
+Read page 1
+sel() is invoked.
+release page oid: 53, pid: 4 at 0
+Release page 4
+read page oid: 53, pid: 0
+Read page 0
+release page oid: 75, pid: 0 at 1
+Release page 0
+read page oid: 53, pid: 1
+Read page 1
+release page oid: 75, pid: 1 at 2
+Release page 1
+read page oid: 53, pid: 2
+Read page 2
+release page oid: 53, pid: 0 at 0
+Release page 0
+read page oid: 53, pid: 3
+Read page 3
+release page oid: 53, pid: 1 at 1
+Release page 1
+read page oid: 53, pid: 4
+Read page 4
+join() is invoked.
+nested loop join invoke()
+release page oid: 53, pid: 2 at 2
+Release page 2
+read page oid: 75, pid: 0
+Read page 0
+release page oid: 53, pid: 3 at 0
+Release page 3
+read page oid: 75, pid: 1
+Read page 1
+release page oid: 53, pid: 4 at 1
+Release page 4
+read page oid: 84, pid: 0
+Read page 0
+checking tuples:
+3 63 27 34 12 5 
+743 652 54 73 
+checking tuples:
+325 74 24 74 46 2 
+743 652 54 73 
+checking tuples:
+3 63 27 34 12 5 
+23423 745 12 654 
+checking tuples:
+325 74 24 74 46 2 
+23423 745 12 654 
+release page oid: 84, pid: 0 at 1
+Release page 0
+read page oid: 84, pid: 1
+Read page 1
+checking tuples:
+3 63 27 34 12 5 
+32 34 2634 34 
+checking tuples:
+325 74 24 74 46 2 
+32 34 2634 34 
+checking tuples:
+3 63 27 34 12 5 
+24 357 342 23 
+checking tuples:
+325 74 24 74 46 2 
+24 357 342 23 
+release page oid: 84, pid: 1 at 1
+Release page 1
+read page oid: 84, pid: 2
+Read page 2
+checking tuples:
+3 63 27 34 12 5 
+123 53 12 21 
+checking tuples:
+325 74 24 74 46 2 
+123 53 12 21 
+checking tuples:
+3 63 27 34 12 5 
+32 5 2 2 
+checking tuples:
+325 74 24 74 46 2 
+32 5 2 2 
+release page oid: 84, pid: 2 at 1
+Release page 2
+read page oid: 84, pid: 3
+Read page 3
+checking tuples:
+3 63 27 34 12 5 
+234 7 12 4 
+checking tuples:
+325 74 24 74 46 2 
+234 7 12 4 
+sel() is invoked.
+release page oid: 75, pid: 0 at 2
+Release page 0
+Close file 53
+Open file 52
+read page oid: 52, pid: 0
+Read page 0
+release page oid: 75, pid: 1 at 0
+Release page 1
+read page oid: 52, pid: 1
+Read page 1
+Close file 75
+Close file 52
+Close file 84
+release() is invoked.
